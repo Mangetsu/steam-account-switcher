@@ -1,0 +1,41 @@
+# ── Build output ─────────────────────────────────────────────────────────────
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+publish/
+publish2/
+.build/
+.tmp/
+
+# ── Visual Studio ─────────────────────────────────────────────────────────────
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+.vscode/
+
+# ── NuGet ─────────────────────────────────────────────────────────────────────
+*.nupkg
+*.snupkg
+packages/
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ── .NET ──────────────────────────────────────────────────────────────────────
+project.lock.json
+*.csproj.user
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# ── Claude Code local settings ────────────────────────────────────────────────
+.claude/
+/SteamSwitcher/Assets/Icon.pdn
