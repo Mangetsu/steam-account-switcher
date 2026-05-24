@@ -9,6 +9,7 @@
 [![License: PolyForm NC](https://img.shields.io/badge/license-PolyForm%20NC%201.0-blue)](LICENSE)
 [![Steam](https://img.shields.io/badge/Steam-compatible-1b2838?logo=steam&logoColor=white)](https://store.steampowered.com)
 
+![SteamSwitcher preview](docs/preview.png)
 
 </div>
 
