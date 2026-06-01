@@ -148,6 +148,4 @@ This project is licensed under the **[PolyForm Noncommercial License 1.0.0](LICE
 - **Non-commercial use** (personal projects, research, education, hobbyist, non-profit) is free.
 - **Commercial use** requires a separate paid license.
 
-To purchase a commercial license, contact: badr.hakkari@gmail.com
-
 © 2026 Badr Hakkari
