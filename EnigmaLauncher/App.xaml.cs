@@ -1,4 +1,6 @@
 using System.Windows;
+using EnigmaLauncher.Migration;
+using EnigmaLauncher.Settings;
 using EnigmaLauncher.Stores;
 using EnigmaLauncher.UI;
 
@@ -9,6 +11,9 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Run once: migrate data/shortcuts from SteamSwitcher v1.0.0 if present
+        MigrationService.RunIfNeeded(new SettingsStore());
 
         var args = e.Args;
 
