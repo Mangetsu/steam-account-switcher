@@ -13,6 +13,20 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - About dialog with version, runtime, install path, license, and GitHub link.
 - Custom shortcut action that prompts for a destination folder before creating the `.lnk`.
 - `CLAUDE.md` as the single source of truth for AI agents, with Codex and GitHub Copilot redirect files.
+- **Global display switcher** — a "Primary screen:" pill in the main window header (next to the account
+  switcher) lists all active monitors; clicking one calls `ChangeDisplaySettingsEx` to make it the
+  Windows primary display without leaving the app.
+- **Per-game display settings** — each game card exposes a small 🖵 icon button (visible on hover)
+  that opens an inline popup with two controls:
+  - *Target screen* — a monitor picked from the live `DisplayManager.GetMonitors()` list.
+  - *Switch method* — **None** (default, no override), **Set as primary** (swap Windows primary before
+    launch), or **Move game window** (wait 5 s after launch then `SetWindowPos` the foreground window
+    to the target monitor — best-effort for windowed/borderless games).
+  Settings are persisted per-game in `data\settings.json`.
+- `Settings/` layer — `AppSettings`, `GameDisplaySettings` (`DisplaySwitchMethod` enum), and
+  `SettingsStore` (read/write `data\settings.json` via `System.Text.Json`).
+- `Display/` layer — `MonitorInfo` model and `DisplayManager` (pure Win32 P/Invoke: `EnumDisplayDevices`,
+  `EnumDisplaySettings`, `ChangeDisplaySettingsEx`, `SetWindowPos`; no WinForms dependency).
 
 ### Changed
 - **Rebranded from SteamSwitcher to EnigmaLauncher.** Install path is now

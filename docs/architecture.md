@@ -187,6 +187,45 @@ On first launch after upgrading from the original SteamSwitcher install
 
 ---
 
+## Display switching
+
+### Global switcher
+
+A "Primary screen" pill in the header enumerates active monitors via
+`DisplayManager.GetMonitors()` (Win32 `EnumDisplayDevices` / `EnumDisplaySettings`).
+Selecting a monitor calls `DisplayManager.SetPrimary(deviceName)`, which:
+
+1. Reads each active monitor's current virtual-desktop position (`DEVMODE.dmPositionX/Y`).
+2. Shifts all positions so the target lands at (0, 0) using `ChangeDisplaySettingsEx` with
+   `CDS_UPDATEREGISTRY | CDS_NORESET` per monitor.
+3. Commits the batch with a final `ChangeDisplaySettingsEx(null, …, 0)`.
+
+### Per-game display settings
+
+Each game card stores a `GameDisplaySettings` entry in `data\settings.json` under the key
+`"storeId:gameId"` (e.g. `"steam:730"`).  The record holds:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `TargetDevice` | `string?` | GDI device name, e.g. `"\\.\DISPLAY2"`. Null → no override. |
+| `Method` | `DisplaySwitchMethod` | `None` / `SetPrimary` / `MoveWindow` |
+
+`MainWindow.ApplyDisplaySettings()` wraps the store's `BuildLaunchOperation()` lambda:
+
+- **`SetPrimary`** — calls `DisplayManager.SetPrimary()` before launching the game.
+- **`MoveWindow`** — fires a `Task.Run` fire-and-forget that waits 5 s then calls
+  `DisplayManager.MoveWindowToMonitor()`, which reads the target monitor's virtual-desktop
+  origin from `EnumDisplaySettings` and uses `SetWindowPos` on the current foreground window.
+  Best-effort — no crash if the window can't be found.
+
+### Settings persistence
+
+`SettingsStore` reads/writes `data\settings.json` using `System.Text.Json` with
+`JsonStringEnumConverter` so method names are human-readable in the file.
+On corrupt or missing file it starts with safe defaults.
+
+---
+
 ## Key classes
 
 | Class | Responsibility |
