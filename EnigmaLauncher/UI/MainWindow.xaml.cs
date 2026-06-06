@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
+using EnigmaLauncher.Display;
 using EnigmaLauncher.Stores;
 using EnigmaLauncher.Shortcuts;
 using EnigmaLauncher.UI.Controls;
@@ -31,7 +32,11 @@ public partial class MainWindow : Window
         Loaded += OnLoaded;
     }
 
-    private async void OnLoaded(object sender, RoutedEventArgs e) => await LoadData();
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        UpdateDisplayButtonLabel();
+        await LoadData();
+    }
 
     private async Task LoadData()
     {
@@ -406,6 +411,90 @@ public partial class MainWindow : Window
             BuildAccountSwitcherPopup(current);
         };
         win.Show();
+    }
+
+    // ── Global display switcher ───────────────────────────────────────────────
+
+    private void DisplaySwitchButton_Click(object sender, RoutedEventArgs e)
+    {
+        BuildDisplaySwitcherPopup();
+        DisplaySwitcherPopup.IsOpen = !DisplaySwitcherPopup.IsOpen;
+    }
+
+    private void BuildDisplaySwitcherPopup()
+    {
+        DisplaySwitcherPanel.Children.Clear();
+
+        IReadOnlyList<MonitorInfo> monitors;
+        try { monitors = DisplayManager.GetMonitors(); }
+        catch
+        {
+            DisplaySwitcherPanel.Children.Add(new TextBlock
+            {
+                Text       = "No monitors detected",
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#8BA6B5")),
+                FontSize   = 12,
+                Margin     = new Thickness(10, 8, 10, 8),
+            });
+            return;
+        }
+
+        foreach (var monitor in monitors)
+        {
+            var nameText = new TextBlock
+            {
+                Text              = monitor.DisplayLabel,
+                FontSize          = 12,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground        = monitor.IsPrimary
+                    ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF66C0F4"))
+                    : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#C6D4DF")),
+            };
+
+            var btn = new Button
+            {
+                Content   = nameText,
+                Style     = (Style)FindResource("AccountSwitchItem"),
+                Tag       = monitor,
+                IsEnabled = !monitor.IsPrimary,
+            };
+            btn.Click += OnDisplaySwitchItemClick;
+            DisplaySwitcherPanel.Children.Add(btn);
+        }
+    }
+
+    private void OnDisplaySwitchItemClick(object sender, RoutedEventArgs e)
+    {
+        DisplaySwitcherPopup.IsOpen = false;
+
+        if (sender is not Button { Tag: MonitorInfo target }) return;
+
+        try
+        {
+            DisplayManager.SetPrimary(target.DeviceName);
+            UpdateDisplayButtonLabel();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to switch primary display:\n\n{ex.Message}",
+                "EnigmaLauncher", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    /// <summary>Updates the display pill label to reflect the current primary monitor.</summary>
+    private void UpdateDisplayButtonLabel()
+    {
+        try
+        {
+            var primary = DisplayManager.GetMonitors().FirstOrDefault(m => m.IsPrimary);
+            CurrentDisplayText.Text = primary is not null
+                ? primary.DisplayLabel.Split('—')[0].Trim()   // "Display 1"
+                : "Display";
+        }
+        catch
+        {
+            CurrentDisplayText.Text = "Display";
+        }
     }
 
     // ── Toolbar buttons ───────────────────────────────────────────────────────

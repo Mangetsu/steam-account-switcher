@@ -55,6 +55,39 @@
                             <StackPanel x:Name="AccountSwitcherPanel" MinWidth="170"/>
                         </Border>
                     </Popup>
+
+                    <!-- separator -->
+                    <TextBlock Text=" | " Foreground="#FF4A6480" FontSize="13"
+                               VerticalAlignment="Center" Margin="4,0"/>
+
+                    <!-- Global primary-display switcher pill -->
+                    <TextBlock Text="Primary screen:" Foreground="#FF8BA6B5"
+                               FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"/>
+
+                    <Button x:Name="DisplaySwitchButton"
+                            Style="{StaticResource AccountDropButton}"
+                            Click="DisplaySwitchButton_Click"
+                            ToolTip="Click to set the primary display">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border x:Name="CurrentDisplayBadge" CornerRadius="10" Padding="10,4"
+                                    Background="#FF2A475E">
+                                <TextBlock x:Name="CurrentDisplayText" Foreground="White"
+                                           FontSize="13" FontWeight="SemiBold" Text="Display"/>
+                            </Border>
+                            <TextBlock Text=" &#x25BE;" Foreground="#FF8BA6B5"
+                                       FontSize="11" VerticalAlignment="Center" Margin="3,0,0,0"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Popup x:Name="DisplaySwitcherPopup"
+                           PlacementTarget="{Binding ElementName=DisplaySwitchButton}"
+                           Placement="Bottom" VerticalOffset="4"
+                           StaysOpen="False" AllowsTransparency="True">
+                        <Border Background="#FF1B2838" BorderBrush="#FF2A475E"
+                                BorderThickness="1" CornerRadius="6" Padding="4">
+                            <StackPanel x:Name="DisplaySwitcherPanel" MinWidth="220"/>
+                        </Border>
+                    </Popup>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
