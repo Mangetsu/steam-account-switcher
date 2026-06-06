@@ -12,4 +12,6 @@ public static class AppPaths
     public static string CacheDirectory => Path.Combine(DataDirectory, "cache");
 
     public static string IconsDirectory => Path.Combine(DataDirectory, "icons");
+
+    public static string SettingsFilePath => Path.Combine(DataDirectory, "settings.json");
 }
