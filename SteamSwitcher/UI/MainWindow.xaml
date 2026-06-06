@@ -4,8 +4,8 @@
         xmlns:controls="clr-namespace:SteamSwitcher.UI.Controls"
         Title="SteamSwitcher"
         Icon="/Assets/app_icon.ico"
-        Width="1130" Height="700"
-        MinWidth="700" MinHeight="500"
+        Width="1130" Height="820"
+        MinWidth="700" MinHeight="490"
         Background="#FF171A21"
         WindowStartupLocation="CenterScreen">
     <Grid>
