@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using EnigmaLauncher.Display;
+using EnigmaLauncher.Settings;
 using EnigmaLauncher.Stores;
 using EnigmaLauncher.Shortcuts;
 using EnigmaLauncher.UI.Controls;
@@ -16,6 +17,7 @@ public partial class MainWindow : Window
     private readonly StoreRegistry   _registry;
     private readonly IAccountStore?  _accountStore;  // first account-capable store (Steam)
     private readonly ShortcutCreator _shortcuts;
+    private readonly SettingsStore   _settingsStore;
 
     // All loaded cards, kept for filtering and shortcut-suffix resolution
     private readonly List<(GameCard Card, GameInfo Game, AccountInfo? Owner)> _allCards = [];
@@ -24,9 +26,10 @@ public partial class MainWindow : Window
 
     public MainWindow(StoreRegistry registry)
     {
-        _registry     = registry;
-        _accountStore = registry.AccountStores.FirstOrDefault();
-        _shortcuts    = new ShortcutCreator();
+        _registry      = registry;
+        _accountStore  = registry.AccountStores.FirstOrDefault();
+        _shortcuts     = new ShortcutCreator();
+        _settingsStore = new SettingsStore();
 
         InitializeComponent();
         Loaded += OnLoaded;
@@ -90,9 +93,11 @@ public partial class MainWindow : Window
 
             var card = new GameCard();
             card.Initialize(game, owner);
+            card.DisplaySettings            = _settingsStore.GetOrCreateGameDisplay(game.StoreId, game.GameId);
             card.PlayRequested             += OnPlayRequested;
             card.ShortcutRequested         += OnShortcutRequested;
             card.ShortcutLocationRequested += OnShortcutLocationRequested;
+            card.DisplaySettingsChanged    += OnDisplaySettingsChanged;
             card.Margin = new Thickness(8);
             _allCards.Add((card, game, owner));
         }
@@ -320,7 +325,51 @@ public partial class MainWindow : Window
     {
         var store = _registry.Get(game.StoreId);
         if (store is null) return;
-        OpenLaunchWindow(store.BuildLaunchOperation(game));
+
+        var displaySettings = _settingsStore.GetOrCreateGameDisplay(game.StoreId, game.GameId);
+        var op = ApplyDisplaySettings(store.BuildLaunchOperation(game), displaySettings);
+        OpenLaunchWindow(op);
+    }
+
+    private void OnDisplaySettingsChanged(object? sender, (GameInfo Game, GameDisplaySettings Settings) e)
+    {
+        _settingsStore.SetGameDisplay(e.Game.StoreId, e.Game.GameId, e.Settings);
+    }
+
+    /// <summary>
+    /// Wraps <paramref name="op"/> so that display routing is applied before/after launch.
+    /// Returns <paramref name="op"/> unchanged when no override is configured.
+    /// </summary>
+    private static Func<IProgress<string>?, Task> ApplyDisplaySettings(
+        Func<IProgress<string>?, Task> op,
+        GameDisplaySettings settings)
+    {
+        if (settings.Method == DisplaySwitchMethod.None
+            || string.IsNullOrEmpty(settings.TargetDevice))
+            return op; // nothing to do
+
+        return async progress =>
+        {
+            if (settings.Method == DisplaySwitchMethod.SetPrimary)
+            {
+                progress?.Report("Switching primary display...");
+                DisplayManager.SetPrimary(settings.TargetDevice);
+            }
+
+            await op(progress);
+
+            if (settings.Method == DisplaySwitchMethod.MoveWindow)
+            {
+                // Fire-and-forget: wait for game window to appear, then move it
+                var targetDevice = settings.TargetDevice;
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(5000); // give game time to create its window
+                    try { DisplayManager.MoveWindowToMonitor(targetDevice); }
+                    catch { /* best-effort */ }
+                });
+            }
+        };
     }
 
     private void OnShortcutRequested(object? sender, GameInfo game)

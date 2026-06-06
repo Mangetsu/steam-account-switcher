@@ -112,14 +112,100 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
+
                 <TextBlock x:Name="GameNameText" Grid.Column="0"
                            Foreground="#C6D4DF" FontSize="11.5" FontWeight="SemiBold"
                            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
-                           VerticalAlignment="Center" Margin="0,0,6,0"/>
-                <controls:AccountBadge x:Name="Badge" Grid.Column="1"
+                           VerticalAlignment="Center" Margin="0,0,4,0"/>
+
+                <!-- Display-settings icon button — faint until hover, never hidden -->
+                <Button x:Name="DisplaySettingsButton" Grid.Column="1"
+                        Width="22" Height="22" Margin="0,0,4,0"
+                        ToolTip="Display settings for this game"
+                        Click="DisplaySettingsButton_Click">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="BorderThickness" Value="0"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Setter Property="Opacity" Value="0.25"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                                CornerRadius="3">
+                                            <ContentPresenter HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#33FFFFFF"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsMouseOver,
+                                             RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                             Value="True">
+                                    <Setter Property="Opacity" Value="1.0"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                    <TextBlock Text="&#x1F5B5;" FontSize="11" Foreground="#FF8BA6B5"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                </Button>
+
+                <controls:AccountBadge x:Name="Badge" Grid.Column="2"
                                        HorizontalAlignment="Right" VerticalAlignment="Center"/>
             </Grid>
+
+            <!-- Display-settings popup — floats above card, placement stable -->
+            <Popup x:Name="DisplaySettingsPopup"
+                   Grid.Row="0" Grid.RowSpan="2"
+                   PlacementTarget="{Binding ElementName=DisplaySettingsButton}"
+                   Placement="Left" HorizontalOffset="-4"
+                   StaysOpen="False" AllowsTransparency="True"
+                   PopupAnimation="Fade">
+                <Border Background="#FF1B2838" BorderBrush="#FF2A475E"
+                        BorderThickness="1" CornerRadius="6" Padding="12">
+                    <StackPanel Width="210">
+                        <TextBlock Text="Display Settings" Foreground="#FF66C0F4"
+                                   FontSize="12" FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+                        <TextBlock Text="Target screen:" Foreground="#FF8BA6B5"
+                                   FontSize="11" Margin="0,0,0,3"/>
+                        <ComboBox x:Name="MonitorComboBox" FontSize="11"
+                                  Background="#FF2A475E" Foreground="#FFC6D4DF"
+                                  BorderBrush="#FF3D607C" Margin="0,0,0,10"/>
+
+                        <TextBlock Text="Switch method:" Foreground="#FF8BA6B5"
+                                   FontSize="11" Margin="0,0,0,3"/>
+                        <ComboBox x:Name="MethodComboBox" FontSize="11"
+                                  Background="#FF2A475E" Foreground="#FFC6D4DF"
+                                  BorderBrush="#FF3D607C" Margin="0,0,0,12"/>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button x:Name="ClearDisplayButton"
+                                    Content="Clear" FontSize="11"
+                                    Padding="10,5" Margin="0,0,6,0"
+                                    Background="#FF2A475E" Foreground="#FFC6D4DF"
+                                    BorderThickness="0" Cursor="Hand"
+                                    Click="ClearDisplayButton_Click"/>
+                            <Button x:Name="SaveDisplayButton"
+                                    Content="Save" FontSize="11"
+                                    Padding="10,5"
+                                    Background="#FF1A9FFF" Foreground="White"
+                                    BorderThickness="0" Cursor="Hand"
+                                    Click="SaveDisplayButton_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Popup>
         </Grid>
     </Border>
 </UserControl>

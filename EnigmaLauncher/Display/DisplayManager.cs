@@ -32,6 +32,16 @@ public static class DisplayManager
         uint dwflags,
         IntPtr lParam);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int X, int Y, int cx, int cy,
+        uint uFlags);
+
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct DISPLAY_DEVICE
     {
@@ -94,6 +104,10 @@ public static class DisplayManager
 
     // DEVMODE field flags
     private const uint DM_POSITION = 0x00000020;
+
+    // SetWindowPos flags
+    private const uint SWP_NOSIZE   = 0x0001;
+    private const uint SWP_NOZORDER = 0x0004;
 
     private const int ENUM_CURRENT_SETTINGS   = -1;
     private const int DISP_CHANGE_SUCCESSFUL  = 0;
@@ -212,5 +226,26 @@ public static class DisplayManager
         // Commit all pending changes
         var empty = new DEVMODE { dmSize = (ushort)Marshal.SizeOf<DEVMODE>() };
         ChangeDisplaySettingsEx(null, ref empty, IntPtr.Zero, 0, IntPtr.Zero);
+    }
+
+    /// <summary>
+    /// Moves the current foreground window to the top-left of <paramref name="targetDevice"/>.
+    /// Call this from a background task after a delay so the game window has time to appear.
+    /// </summary>
+    /// <param name="targetDevice">GDI device name, e.g. <c>"\\.\DISPLAY2"</c>.</param>
+    public static void MoveWindowToMonitor(string targetDevice)
+    {
+        var dm = new DEVMODE { dmSize = (ushort)Marshal.SizeOf<DEVMODE>() };
+        if (!EnumDisplaySettings(targetDevice, ENUM_CURRENT_SETTINGS, ref dm))
+            throw new InvalidOperationException(
+                $"Cannot read display settings for '{targetDevice}'.");
+
+        var hwnd = GetForegroundWindow();
+        if (hwnd == IntPtr.Zero) return; // nothing focused
+
+        // Move window to target monitor's top-left; keep its current size
+        SetWindowPos(hwnd, IntPtr.Zero,
+            dm.dmPositionX, dm.dmPositionY, 0, 0,
+            SWP_NOSIZE | SWP_NOZORDER);
     }
 }
