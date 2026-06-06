@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to SteamSwitcher will be documented in this file.
+All notable changes to EnigmaLauncher will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Versions follow [Semantic Versioning](https://semver.org/).
@@ -15,19 +15,34 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - `CLAUDE.md` as the single source of truth for AI agents, with Codex and GitHub Copilot redirect files.
 
 ### Changed
-- License changed from MIT to PolyForm Noncommercial 1.0.0; non-commercial use remains free, commercial use requires a separate paid license.
-- Game library deduplication now keeps distinct cards for the same AppID when ownership differs by Steam account.
-- Game scanning now uses per-user Steam ticket data to detect additional remembered accounts for an installed AppID when the manifest only reports one `LastOwner`, avoiding cloud-only false positives.
+- **Rebranded from SteamSwitcher to EnigmaLauncher.** Install path is now
+  `%LOCALAPPDATA%\EnigmaLauncher\`. Existing v1.0.0 installations are migrated automatically
+  on first launch (data copied, shortcuts rewritten, old folder preserved as fallback).
+- Store abstraction layer added (`Stores/IGameStore`, `IAccountStore`, `GameInfo`, `AccountInfo`,
+  `StoreRegistry`) so additional game stores (Epic, GOG, Xbox) can be plugged in later.
+  Steam remains the only active store; the library and switching behaviour is unchanged.
+- License changed from MIT to PolyForm Noncommercial 1.0.0; non-commercial use remains free,
+  commercial use requires a separate paid license.
+- Game library deduplication now keeps distinct cards for the same AppID when ownership differs
+  by Steam account.
+- Game scanning now uses per-user Steam ticket data to detect additional remembered accounts
+  for an installed AppID when the manifest only reports one `LastOwner`, avoiding cloud-only
+  false positives.
 - Game launch and generated shortcuts now preserve the selected owner with `--owner <steamid64>`.
-- Multi-owner game shortcuts now use the account display name in the `.lnk` filename instead of the SteamID64.
-- Build output now keeps the install root tidy: `SteamSwitcher.exe` at root, runtime files under `app\`, and app data under `data\`.
+- Multi-owner game shortcuts now use the account display name in the `.lnk` filename instead of
+  the SteamID64.
+- Build output now keeps the install root tidy: `EnigmaLauncher.exe` at root, runtime files
+  under `app\`, and app data under `data\`.
 - Game-card action buttons now have icon-leading labels and distinct colors.
-- `build.bat` now stops any running SteamSwitcher process before publishing and launches the app after a successful build.
+- `build.bat` now stops any running EnigmaLauncher process before publishing and launches the
+  app after a successful build.
 - The custom shortcut folder picker now opens on the Desktop by default.
 
 ---
 
 ## [1.0.0] — 2026-05-24
+
+> **Note:** released as *SteamSwitcher* v1.0.0. Rebranded to *EnigmaLauncher* starting v2.0.0.
 
 ### Added
 - Unified game library grid showing installed games across all Steam accounts

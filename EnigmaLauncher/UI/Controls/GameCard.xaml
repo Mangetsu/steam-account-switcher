@@ -1,0 +1,125 @@
+﻿<UserControl x:Class="EnigmaLauncher.UI.Controls.GameCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:EnigmaLauncher.UI.Controls"
+             Width="200" Height="320"
+             Cursor="Hand">
+    <UserControl.Resources>
+        <Style x:Key="GameActionButton" TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="170"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="0,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.88"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.74"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="#FF3D5C72"/>
+                                <Setter Property="Foreground" Value="#FF6B8999"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Border x:Name="CardBorder" CornerRadius="6" BorderThickness="1">
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="Background" Value="#1E2837"/>
+                <Setter Property="BorderBrush" Value="#2A475E"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                        <Setter Property="BorderBrush" Value="#66C0F4"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="267"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" ClipToBounds="True">
+                <Border CornerRadius="6,6,0,0" ClipToBounds="True">
+                    <Border x:Name="Placeholder" CornerRadius="6,6,0,0">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="#1B2838" Offset="0"/>
+                                <GradientStop Color="#2A475E" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <TextBlock Text="?" Foreground="#4A6A80" FontSize="48"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </Border>
+
+                <Image x:Name="ArtworkImage" Stretch="UniformToFill" Visibility="Collapsed"/>
+
+                <Grid Panel.ZIndex="5" Background="#BF000000">
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <Button Content="&#x25B6;   Play"
+                                Style="{StaticResource GameActionButton}"
+                                Background="#FF1A9FFF"
+                                FontSize="14" Padding="0,9"
+                                Click="PlayButton_Click"/>
+                        <Button x:Name="DesktopShortcutButton"
+                                Content="&#x1F4CC;  Create Desktop Shortcut"
+                                Style="{StaticResource GameActionButton}"
+                                Background="#FF16A34A"
+                                FontSize="11.5"
+                                Margin="0,8,0,0"
+                                Click="DesktopShortcutButton_Click"/>
+                        <Button x:Name="CustomShortcutButton"
+                                Content="&#x1F517;  Create a shortcut"
+                                Style="{StaticResource GameActionButton}"
+                                Background="#FFF59E0B"
+                                Margin="0,8,0,0"
+                                Click="CustomShortcutButton_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <Grid Grid.Row="1" Margin="10,7,10,7">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="GameNameText" Grid.Column="0"
+                           Foreground="#C6D4DF" FontSize="11.5" FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                           VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <controls:AccountBadge x:Name="Badge" Grid.Column="1"
+                                       HorizontalAlignment="Right" VerticalAlignment="Center"/>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>
