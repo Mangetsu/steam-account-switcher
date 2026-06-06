@@ -1,10 +1,10 @@
-﻿using System.IO;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Microsoft.Win32;
-using EnigmaLauncher.Steam;
+using EnigmaLauncher.Stores;
 using EnigmaLauncher.Shortcuts;
 using EnigmaLauncher.UI.Controls;
 
@@ -12,24 +12,20 @@ namespace EnigmaLauncher.UI;
 
 public partial class MainWindow : Window
 {
-    private readonly SteamConfig _config;
-    private readonly AccountManager _accounts;
-    private readonly LibraryScanner _scanner;
-    private readonly ArtworkResolver _artwork;
+    private readonly StoreRegistry   _registry;
+    private readonly IAccountStore?  _accountStore;  // first account-capable store (Steam)
     private readonly ShortcutCreator _shortcuts;
 
-    // All loaded cards for filtering
-    private readonly List<(GameCard Card, GameEntry Game, SteamAccount? Owner)> _allCards = [];
-    private List<SteamAccount> _loadedAccounts = [];
+    // All loaded cards, kept for filtering and shortcut-suffix resolution
+    private readonly List<(GameCard Card, GameInfo Game, AccountInfo? Owner)> _allCards = [];
+    private List<AccountInfo> _loadedAccounts = [];
     private string _activeFilter = "all";
 
-    public MainWindow(SteamConfig config)
+    public MainWindow(StoreRegistry registry)
     {
-        _config = config;
-        _accounts = new AccountManager(config);
-        _scanner = new LibraryScanner(config);
-        _artwork = new ArtworkResolver(config);
-        _shortcuts = new ShortcutCreator();
+        _registry     = registry;
+        _accountStore = registry.AccountStores.FirstOrDefault();
+        _shortcuts    = new ShortcutCreator();
 
         InitializeComponent();
         Loaded += OnLoaded;
@@ -40,27 +36,27 @@ public partial class MainWindow : Window
     private async Task LoadData()
     {
         LoadingOverlay.Visibility = Visibility.Visible;
-        EmptyState.Visibility = Visibility.Collapsed;
+        EmptyState.Visibility     = Visibility.Collapsed;
         GameGrid.Children.Clear();
         _allCards.Clear();
 
-        List<GameEntry> games;
-        List<SteamAccount> accounts;
-        SteamAccount? current;
+        List<GameInfo>    games;
+        List<AccountInfo> accounts;
+        AccountInfo?      current;
 
         try
         {
-            LoadingSubText.Text = "Reading Steam accounts...";
-            accounts = await Task.Run(() => _accounts.LoadAccounts());
-            current  = await Task.Run(() => _accounts.GetCurrentAccount());
+            LoadingSubText.Text = "Reading accounts...";
+            accounts = await Task.Run(() => _registry.GetAllAccounts().ToList());
+            current  = await Task.Run(() => _registry.GetCurrentAccount());
 
             LoadingSubText.Text = "Scanning game libraries...";
-            games = await Task.Run(() => _scanner.Scan());
+            games = await Task.Run(() => _registry.ScanAllGames().ToList());
         }
         catch (Exception ex)
         {
             LoadingOverlay.Visibility = Visibility.Collapsed;
-            MessageBox.Show($"Failed to load Steam data:\n\n{ex.Message}",
+            MessageBox.Show($"Failed to load game data:\n\n{ex.Message}",
                 "EnigmaLauncher", MessageBoxButton.OK, MessageBoxImage.Error);
             return;
         }
@@ -74,15 +70,19 @@ public partial class MainWindow : Window
         if (games.Count == 0)
         {
             LoadingOverlay.Visibility = Visibility.Collapsed;
-            EmptyState.Visibility = Visibility.Visible;
+            EmptyState.Visibility     = Visibility.Visible;
             return;
         }
 
-        var accountLookup = accounts.ToDictionary(a => a.SteamId64);
+        // AccountId (SteamId64 string) → AccountInfo lookup for owner resolution
+        var accountLookup = accounts.ToDictionary(a => a.AccountId);
 
         foreach (var game in games)
         {
-            accountLookup.TryGetValue(game.LastOwnerSteamId64, out var owner);
+            AccountInfo? owner = null;
+            if (game.OwnerAccountId is not null)
+                accountLookup.TryGetValue(game.OwnerAccountId, out owner);
+
             var card = new GameCard();
             card.Initialize(game, owner);
             card.PlayRequested             += OnPlayRequested;
@@ -100,7 +100,7 @@ public partial class MainWindow : Window
 
     // ── Account header ────────────────────────────────────────────────────────
 
-    private void RefreshAccountHeader(SteamAccount? account)
+    private void RefreshAccountHeader(AccountInfo? account)
     {
         if (account is null)
         {
@@ -110,13 +110,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        CurrentAccountText.Text = account.PersonaName.Length > 0
-            ? account.PersonaName
-            : account.AccountName;
+        CurrentAccountText.Text = account.DisplayName;
 
-        var colorHex = AccountBadge.GetColorForAccount(account.AccountName);
         CurrentAccountBadge.Background = new SolidColorBrush(
-            (Color)ColorConverter.ConvertFromString(colorHex));
+            (Color)ColorConverter.ConvertFromString(account.BadgeColor));
     }
 
     // ── Account switcher popup ────────────────────────────────────────────────
@@ -126,31 +123,30 @@ public partial class MainWindow : Window
         AccountSwitcherPopup.IsOpen = !AccountSwitcherPopup.IsOpen;
     }
 
-    private void BuildAccountSwitcherPopup(SteamAccount? current)
+    private void BuildAccountSwitcherPopup(AccountInfo? current)
     {
         AccountSwitcherPanel.Children.Clear();
 
         var others = _loadedAccounts
-            .Where(a => current is null || a.SteamId64 != current.SteamId64)
+            .Where(a => current is null || a.AccountId != current.AccountId)
             .ToList();
 
         if (others.Count == 0)
         {
             AccountSwitcherPanel.Children.Add(new TextBlock
             {
-                Text = "No other accounts",
+                Text       = "No other accounts",
                 Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#8BA6B5")),
-                FontSize = 12,
-                Margin = new Thickness(10, 8, 10, 8),
+                FontSize   = 12,
+                Margin     = new Thickness(10, 8, 10, 8),
             });
             return;
         }
 
         foreach (var account in others)
         {
-            var label    = account.PersonaName.Length > 0 ? account.PersonaName : account.AccountName;
-            var colorHex = AccountBadge.GetColorForAccount(account.AccountName);
-            var color    = (Color)ColorConverter.ConvertFromString(colorHex);
+            var label = account.DisplayName;
+            var color = (Color)ColorConverter.ConvertFromString(account.BadgeColor);
 
             // Small coloured initial badge
             var initials = new TextBlock
@@ -196,22 +192,22 @@ public partial class MainWindow : Window
     {
         AccountSwitcherPopup.IsOpen = false;
 
-        if (sender is not Button { Tag: SteamAccount target }) return;
+        if (sender is not Button { Tag: AccountInfo target }) return;
 
-        OpenLaunchWindow(SteamOperations.SwitchAccount(_config, target));
+        var store = _registry.Get(target.StoreId) as IAccountStore;
+        if (store is null) return;
+
+        OpenLaunchWindow(store.BuildSwitchOperation(target));
     }
 
     // ── Filter buttons ────────────────────────────────────────────────────────
 
-    private void BuildFilterButtons(List<SteamAccount> accounts)
+    private void BuildFilterButtons(List<AccountInfo> accounts)
     {
         FilterPanel.Children.Clear();
         AddFilterButton("All", "all");
         foreach (var account in accounts)
-        {
-            var label = account.PersonaName.Length > 0 ? account.PersonaName : account.AccountName;
-            AddFilterButton(label, account.AccountName);
-        }
+            AddFilterButton(account.DisplayName, account.AccountId);
         _activeFilter = "all";
         RefreshFilterButtonStyles();
     }
@@ -237,11 +233,10 @@ public partial class MainWindow : Window
     private void ApplyFilter()
     {
         GameGrid.Children.Clear();
-        foreach (var (card, _, owner) in _allCards)
+        foreach (var (card, game, _) in _allCards)
         {
             bool show = _activeFilter == "all"
-                || (owner is not null
-                    && string.Equals(owner.AccountName, _activeFilter, StringComparison.OrdinalIgnoreCase));
+                || game.OwnerAccountId == _activeFilter;
             if (show)
                 GameGrid.Children.Add(card);
         }
@@ -266,20 +261,26 @@ public partial class MainWindow : Window
 
     // ── Artwork loading ───────────────────────────────────────────────────────
 
-    private async Task LoadArtworkAsync(List<(GameCard Card, GameEntry Game, SteamAccount? Owner)> cards)
+    private async Task LoadArtworkAsync(List<(GameCard Card, GameInfo Game, AccountInfo? Owner)> cards)
     {
         foreach (var (card, game, _) in cards)
         {
             try
             {
-                var localPath = await Task.Run(() => _artwork.GetLocalArtworkPath(game.AppId))
-                             ?? await Task.Run(() => _artwork.GetCachedDownloadPath(game.AppId));
+                var store = _registry.Get(game.StoreId);
+                if (store is null) continue;
+
+                // Capture locals for lambda capture safety
+                var capturedStore = store;
+                var capturedGame  = game;
+
+                var localPath = await Task.Run(() => capturedStore.GetArtworkPath(capturedGame));
 
                 if (localPath is null)
                 {
                     _ = Task.Run(async () =>
                     {
-                        var downloaded = await _artwork.DownloadArtworkAsync(game.AppId);
+                        var downloaded = await capturedStore.DownloadArtworkAsync(capturedGame);
                         if (downloaded is not null)
                             await Dispatcher.InvokeAsync(() => SetCardArtwork(card, downloaded));
                     });
@@ -298,8 +299,8 @@ public partial class MainWindow : Window
         {
             var bmp = new BitmapImage();
             bmp.BeginInit();
-            bmp.UriSource       = new Uri(imagePath, UriKind.Absolute);
-            bmp.CacheOption     = BitmapCacheOption.OnLoad;
+            bmp.UriSource        = new Uri(imagePath, UriKind.Absolute);
+            bmp.CacheOption      = BitmapCacheOption.OnLoad;
             bmp.DecodePixelWidth = 200;
             bmp.EndInit();
             bmp.Freeze();
@@ -310,16 +311,18 @@ public partial class MainWindow : Window
 
     // ── Game actions ──────────────────────────────────────────────────────────
 
-    private void OnPlayRequested(object? sender, GameEntry game)
+    private void OnPlayRequested(object? sender, GameInfo game)
     {
-        OpenLaunchWindow(SteamOperations.LaunchGame(_config, game.AppId, game.LastOwnerSteamId64));
+        var store = _registry.Get(game.StoreId);
+        if (store is null) return;
+        OpenLaunchWindow(store.BuildLaunchOperation(game));
     }
 
-    private void OnShortcutRequested(object? sender, GameEntry game)
+    private void OnShortcutRequested(object? sender, GameInfo game)
     {
         try
         {
-            var artworkPath = GetShortcutArtworkPath(game);
+            var artworkPath = _registry.Get(game.StoreId)?.GetArtworkPath(game);
             var lnkPath = _shortcuts.CreateGameShortcut(
                 game,
                 artworkPath,
@@ -335,13 +338,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnShortcutLocationRequested(object? sender, GameEntry game)
+    private void OnShortcutLocationRequested(object? sender, GameInfo game)
     {
         var dialog = new OpenFolderDialog
         {
-            Title = $"Choose where to create a shortcut for {game.Name}",
+            Title            = $"Choose where to create a shortcut for {game.Name}",
             InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-            Multiselect = false,
+            Multiselect      = false,
         };
 
         if (dialog.ShowDialog(this) != true)
@@ -349,7 +352,7 @@ public partial class MainWindow : Window
 
         try
         {
-            var artworkPath = GetShortcutArtworkPath(game);
+            var artworkPath = _registry.Get(game.StoreId)?.GetArtworkPath(game);
             var lnkPath = _shortcuts.CreateGameShortcut(
                 game,
                 artworkPath,
@@ -365,30 +368,26 @@ public partial class MainWindow : Window
         }
     }
 
-    private string? GetShortcutArtworkPath(GameEntry game)
-    {
-        return _artwork.GetLocalArtworkPath(game.AppId)
-            ?? _artwork.GetCachedDownloadPath(game.AppId);
-    }
-
-    private string? GetMultiOwnerShortcutSuffix(GameEntry game)
+    /// <summary>
+    /// Returns a display-name suffix when the same game is owned by multiple accounts,
+    /// so each shortcut gets a unique file name.  Returns null when there is only one owner.
+    /// </summary>
+    private string? GetMultiOwnerShortcutSuffix(GameInfo game)
     {
         var ownerCount = _allCards
-            .Where(item => item.Game.AppId == game.AppId)
-            .Select(item => item.Game.LastOwnerSteamId64)
+            .Where(item => item.Game.GameId == game.GameId && item.Game.StoreId == game.StoreId)
+            .Select(item => item.Game.OwnerAccountId)
             .Distinct()
             .Count();
 
         if (ownerCount <= 1) return null;
 
         var owner = _allCards.FirstOrDefault(item =>
-            item.Game.AppId == game.AppId
-            && item.Game.LastOwnerSteamId64 == game.LastOwnerSteamId64).Owner;
+            item.Game.GameId        == game.GameId
+            && item.Game.StoreId        == game.StoreId
+            && item.Game.OwnerAccountId == game.OwnerAccountId).Owner;
 
-        var name = owner?.ToString();
-        return string.IsNullOrWhiteSpace(name)
-            ? game.LastOwnerSteamId64 == 0 ? null : game.LastOwnerSteamId64.ToString()
-            : name;
+        return owner?.DisplayName ?? game.OwnerAccountId;
     }
 
     // ── Shared launch-window helper ───────────────────────────────────────────
@@ -402,7 +401,7 @@ public partial class MainWindow : Window
         var win = new LaunchWindow(operation) { Owner = this };
         win.Closed += (_, _) =>
         {
-            var current = _accounts.GetCurrentAccount();
+            var current = _accountStore?.GetCurrentAccount();
             RefreshAccountHeader(current);
             BuildAccountSwitcherPopup(current);
         };
@@ -419,7 +418,8 @@ public partial class MainWindow : Window
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
     {
-        _accounts.InvalidateCache();
+        foreach (var store in _registry.AccountStores)
+            store.InvalidateAccountCache();
         _activeFilter = "all";
         await LoadData();
     }

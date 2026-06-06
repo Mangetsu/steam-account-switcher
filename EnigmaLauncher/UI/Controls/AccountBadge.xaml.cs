@@ -1,28 +1,21 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using EnigmaLauncher.Steam;
+using EnigmaLauncher.Stores;
 
 namespace EnigmaLauncher.UI.Controls;
 
 public partial class AccountBadge : UserControl
 {
-    // Account name → badge color mapping
-    private static readonly Dictionary<string, string> AccountColors = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["themangetsu"] = "#2563EB",
-        ["thefanopsis"]  = "#16A34A",
-    };
-
     private const string DefaultColor = "#6B7280";
 
     public static readonly DependencyProperty AccountProperty =
-        DependencyProperty.Register(nameof(Account), typeof(SteamAccount), typeof(AccountBadge),
+        DependencyProperty.Register(nameof(Account), typeof(AccountInfo), typeof(AccountBadge),
             new PropertyMetadata(null, OnAccountChanged));
 
-    public SteamAccount? Account
+    public AccountInfo? Account
     {
-        get => (SteamAccount?)GetValue(AccountProperty);
+        get => (AccountInfo?)GetValue(AccountProperty);
         set => SetValue(AccountProperty, value);
     }
 
@@ -42,18 +35,24 @@ public partial class AccountBadge : UserControl
         if (Account is null)
         {
             BadgeText.Text = "Unknown";
-            BadgeBorder.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(DefaultColor));
+            BadgeBorder.Background = new SolidColorBrush(
+                (Color)ColorConverter.ConvertFromString(DefaultColor));
             return;
         }
 
-        BadgeText.Text = Account.PersonaName.Length > 0 ? Account.PersonaName : Account.AccountName;
+        BadgeText.Text = Account.DisplayName.Length > 0
+            ? Account.DisplayName : Account.AccountName;
 
-        var colorHex = AccountColors.TryGetValue(Account.AccountName, out var hex) ? hex : DefaultColor;
-        BadgeBorder.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colorHex));
+        var colorHex = string.IsNullOrEmpty(Account.BadgeColor)
+            ? DefaultColor : Account.BadgeColor;
+        BadgeBorder.Background = new SolidColorBrush(
+            (Color)ColorConverter.ConvertFromString(colorHex));
     }
 
-    public static string GetColorForAccount(string accountName)
-    {
-        return AccountColors.TryGetValue(accountName, out var hex) ? hex : DefaultColor;
-    }
+    /// <summary>
+    /// Returns the badge colour for an <see cref="AccountInfo"/>.
+    /// Convenience helper for code that needs the colour without a control instance.
+    /// </summary>
+    public static string GetColorForAccount(AccountInfo? account) =>
+        account?.BadgeColor ?? DefaultColor;
 }

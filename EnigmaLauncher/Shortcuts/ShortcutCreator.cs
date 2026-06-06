@@ -1,9 +1,8 @@
-﻿using System.Diagnostics;
-using System.Drawing;
+﻿using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Runtime.InteropServices;
-using EnigmaLauncher.Steam;
+using EnigmaLauncher.Stores;
 
 namespace EnigmaLauncher.Shortcuts;
 
@@ -17,17 +16,17 @@ public class ShortcutCreator
         Directory.CreateDirectory(_iconDir);
     }
 
-    public string CreateGameShortcut(GameEntry game, string? artworkPath)
+    public string CreateGameShortcut(GameInfo game, string? artworkPath)
     {
         var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
         return CreateGameShortcut(game, artworkPath, desktopPath);
     }
 
-    public string CreateGameShortcut(GameEntry game, string? artworkPath, string targetDirectory)
+    public string CreateGameShortcut(GameInfo game, string? artworkPath, string targetDirectory)
         => CreateGameShortcut(game, artworkPath, targetDirectory, fileNameSuffix: null);
 
     public string CreateGameShortcut(
-        GameEntry game,
+        GameInfo game,
         string? artworkPath,
         string targetDirectory,
         string? fileNameSuffix)
@@ -35,11 +34,10 @@ public class ShortcutCreator
         if (!Directory.Exists(targetDirectory))
             throw new DirectoryNotFoundException($"Shortcut destination does not exist: {targetDirectory}");
 
-        var exePath = GetExePath();
+        var exePath  = GetExePath();
         var safeName = SanitizeFileName(game.Name);
-        var lnkPath = GetAvailableShortcutPath(targetDirectory, safeName, game, fileNameSuffix);
-
-        var iconPath = GetOrCreateIcon(game.AppId, artworkPath) ?? exePath;
+        var lnkPath  = GetAvailableShortcutPath(targetDirectory, safeName, game, fileNameSuffix);
+        var iconPath = GetOrCreateIcon(game.GameId, artworkPath) ?? exePath;
 
         // Use WScript.Shell via late binding — works in .NET 8 without a COM reference
         var shellType = Type.GetTypeFromProgID("WScript.Shell")
@@ -49,33 +47,33 @@ public class ShortcutCreator
         try
         {
             dynamic shortcut = shell.CreateShortcut(lnkPath);
-            shortcut.TargetPath = exePath;
-            shortcut.Arguments = BuildLaunchArguments(game);
+            shortcut.TargetPath       = exePath;
+            shortcut.Arguments        = BuildLaunchArguments(game);
             shortcut.WorkingDirectory = Path.GetDirectoryName(exePath) ?? string.Empty;
-            shortcut.IconLocation = $"{iconPath},0";
-            shortcut.Description = $"Launch {game.Name} via EnigmaLauncher";
+            shortcut.IconLocation     = $"{iconPath},0";
+            shortcut.Description      = $"Launch {game.Name} via EnigmaLauncher";
             shortcut.Save();
         }
         finally
         {
-            System.Runtime.InteropServices.Marshal.ReleaseComObject(shell);
+            Marshal.ReleaseComObject(shell);
         }
 
         return lnkPath;
     }
 
-    private static string BuildLaunchArguments(GameEntry game)
+    private static string BuildLaunchArguments(GameInfo game)
     {
-        var args = $"--launch {game.AppId}";
-        if (game.LastOwnerSteamId64 != 0)
-            args += $" --owner {game.LastOwnerSteamId64}";
+        var args = $"--launch {game.GameId}";
+        if (!string.IsNullOrEmpty(game.OwnerAccountId))
+            args += $" --owner {game.OwnerAccountId}";
         return args;
     }
 
     private static string GetAvailableShortcutPath(
         string targetDirectory,
         string safeName,
-        GameEntry game,
+        GameInfo game,
         string? fileNameSuffix)
     {
         var suffix = SanitizeFileName(fileNameSuffix ?? string.Empty);
@@ -85,9 +83,9 @@ public class ShortcutCreator
 
         if (!File.Exists(path)) return path;
 
-        suffix = game.LastOwnerSteamId64 != 0
-            ? suffix.Length > 0 ? suffix : game.LastOwnerSteamId64.ToString()
-            : SanitizeFileName(Path.GetFileName(game.LibraryPath));
+        suffix = !string.IsNullOrEmpty(game.OwnerAccountId)
+            ? suffix.Length > 0 ? suffix : game.OwnerAccountId
+            : SanitizeFileName(Path.GetFileName(game.LibraryPath ?? string.Empty));
 
         path = Path.Combine(targetDirectory, $"{safeName} ({suffix}).lnk");
         if (!File.Exists(path)) return path;
@@ -99,9 +97,9 @@ public class ShortcutCreator
         }
     }
 
-    private string? GetOrCreateIcon(int appId, string? artworkPath)
+    private string? GetOrCreateIcon(string gameId, string? artworkPath)
     {
-        var iconPath = Path.Combine(_iconDir, $"{appId}.ico");
+        var iconPath = Path.Combine(_iconDir, $"{gameId}.ico");
         if (File.Exists(iconPath)) return iconPath;
         if (artworkPath is null || !File.Exists(artworkPath)) return null;
 

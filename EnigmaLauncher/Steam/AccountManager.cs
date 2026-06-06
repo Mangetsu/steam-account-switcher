@@ -72,5 +72,16 @@ public class AccountManager
     public SteamAccount? GetBySteamId64(long steamId64) =>
         LoadAccounts().FirstOrDefault(a => a.SteamId64 == steamId64);
 
+    /// <summary>
+    /// Returns the account for <paramref name="steamId64"/> from the in-memory cache
+    /// without triggering a disk read. Returns false if the cache is cold or the
+    /// account is not present.
+    /// </summary>
+    public bool TryGetCachedAccount(long steamId64, out SteamAccount? account)
+    {
+        account = _accounts?.FirstOrDefault(a => a.SteamId64 == steamId64);
+        return account is not null;
+    }
+
     public void InvalidateCache() => _accounts = null;
 }

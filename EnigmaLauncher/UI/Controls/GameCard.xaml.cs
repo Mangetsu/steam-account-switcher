@@ -2,23 +2,23 @@
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
-using EnigmaLauncher.Steam;
+using EnigmaLauncher.Stores;
 
 namespace EnigmaLauncher.UI.Controls;
 
 public partial class GameCard : UserControl
 {
-    public GameEntry? Game { get; private set; }
-    public SteamAccount? Owner { get; private set; }
+    public GameInfo?    Game  { get; private set; }
+    public AccountInfo? Owner { get; private set; }
 
     /// <summary>Raised when the user clicks Play or double-clicks the card.</summary>
-    public event EventHandler<GameEntry>? PlayRequested;
+    public event EventHandler<GameInfo>? PlayRequested;
 
     /// <summary>Raised when the user clicks Create Desktop Shortcut.</summary>
-    public event EventHandler<GameEntry>? ShortcutRequested;
+    public event EventHandler<GameInfo>? ShortcutRequested;
 
-    /// <summary>Raised when the user clicks Create a shortcut.</summary>
-    public event EventHandler<GameEntry>? ShortcutLocationRequested;
+    /// <summary>Raised when the user clicks Create a shortcut (choose location).</summary>
+    public event EventHandler<GameInfo>? ShortcutLocationRequested;
 
     public GameCard()
     {
@@ -26,30 +26,31 @@ public partial class GameCard : UserControl
         MouseDoubleClick += OnMouseDoubleClick;
     }
 
-    public void Initialize(GameEntry game, SteamAccount? owner)
+    public void Initialize(GameInfo game, AccountInfo? owner)
     {
-        Game = game;
+        Game  = game;
         Owner = owner;
 
         GameNameText.Text = game.Name;
-        Badge.Account = owner;
+        Badge.Account     = owner;
         Badge.Refresh();
 
         if (owner is not null && !owner.CanAutoSwitch)
         {
-            var message = $"Cannot auto-switch to '{owner.PersonaName}'.\nLog in to that account with 'Remember me' checked.";
+            var message = $"Cannot auto-switch to '{owner.DisplayName}'.\n" +
+                          "Log in to that account with 'Remember me' checked.";
             DesktopShortcutButton.IsEnabled = false;
-            DesktopShortcutButton.ToolTip = message;
-            CustomShortcutButton.IsEnabled = false;
-            CustomShortcutButton.ToolTip = message;
+            DesktopShortcutButton.ToolTip   = message;
+            CustomShortcutButton.IsEnabled  = false;
+            CustomShortcutButton.ToolTip    = message;
         }
     }
 
     public void SetArtwork(BitmapImage image)
     {
-        ArtworkImage.Source = image;
+        ArtworkImage.Source     = image;
         ArtworkImage.Visibility = Visibility.Visible;
-        Placeholder.Visibility = Visibility.Collapsed;
+        Placeholder.Visibility  = Visibility.Collapsed;
     }
 
     private void PlayButton_Click(object sender, RoutedEventArgs e)
@@ -60,14 +61,14 @@ public partial class GameCard : UserControl
 
     private void DesktopShortcutButton_Click(object sender, RoutedEventArgs e)
     {
-        e.Handled = true; // don't also trigger PlayRequested
+        e.Handled = true;
         if (Game is not null)
             ShortcutRequested?.Invoke(this, Game);
     }
 
     private void CustomShortcutButton_Click(object sender, RoutedEventArgs e)
     {
-        e.Handled = true; // don't also trigger PlayRequested
+        e.Handled = true;
         if (Game is not null)
             ShortcutLocationRequested?.Invoke(this, Game);
     }
