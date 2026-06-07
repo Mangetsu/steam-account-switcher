@@ -75,7 +75,8 @@ public static class MigrationService
 
         Directory.CreateDirectory(dst);
 
-        foreach (var file in Directory.EnumerateFiles(src, "*", SearchOption.AllDirectories))
+        var opts = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true };
+        foreach (var file in Directory.EnumerateFiles(src, "*", opts))
         {
             var relative = Path.GetRelativePath(src, file);
             var target   = Path.Combine(dst, relative);
@@ -115,12 +116,19 @@ public static class MigrationService
         dynamic shell = Activator.CreateInstance(shellType)!;
         try
         {
-            foreach (var root in searchRoots)
+            // IgnoreInaccessible skips ACL-protected subdirectories (e.g. "Start Menu\Programmes")
+        // without throwing UnauthorizedAccessException during iteration.
+        var enumOptions = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            IgnoreInaccessible    = true,
+        };
+
+        foreach (var root in searchRoots)
             {
                 if (!Directory.Exists(root)) continue;
 
-                foreach (var lnkPath in Directory.EnumerateFiles(root, "*.lnk",
-                             SearchOption.AllDirectories))
+                foreach (var lnkPath in Directory.EnumerateFiles(root, "*.lnk", enumOptions))
                 {
                     try
                     {
