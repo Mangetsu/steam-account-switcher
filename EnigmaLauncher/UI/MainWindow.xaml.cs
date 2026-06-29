@@ -95,6 +95,7 @@ public partial class MainWindow : Window
             card.Initialize(game, owner);
             card.DisplaySettings            = _settingsStore.GetOrCreateGameDisplay(game.StoreId, game.GameId);
             card.PlayRequested             += OnPlayRequested;
+            card.OpenInLibraryRequested    += OnOpenInLibraryRequested;
             card.ShortcutRequested         += OnShortcutRequested;
             card.ShortcutLocationRequested += OnShortcutLocationRequested;
             card.DisplaySettingsChanged    += OnDisplaySettingsChanged;
@@ -331,6 +332,12 @@ public partial class MainWindow : Window
         OpenLaunchWindow(op);
     }
 
+    private void OnOpenInLibraryRequested(object? sender, GameInfo game)
+    {
+        if (_registry.Get(game.StoreId) is not IStoreClientActions store) return;
+        OpenLaunchWindow(store.BuildOpenInLibraryOperation(game));
+    }
+
     private void OnDisplaySettingsChanged(object? sender, (GameInfo Game, GameDisplaySettings Settings) e)
     {
         _settingsStore.SetGameDisplay(e.Game.StoreId, e.Game.GameId, e.Settings);
@@ -552,6 +559,21 @@ public partial class MainWindow : Window
     {
         var win = new AboutWindow { Owner = this };
         win.ShowDialog();
+    }
+
+    private void StartSteamButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_accountStore is not IStoreClientActions store) return;
+
+        try
+        {
+            store.StartClient();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to start Steam:\n\n{ex.Message}",
+                "EnigmaLauncher", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)

@@ -10,6 +10,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Header button to start or open Steam without launching a game.
+- Game-card action to open the game in Steam Library without launching it, automatically switching
+  to the selected card's owner account first when needed.
 - About dialog with version, runtime, install path, license, and GitHub link.
 - Custom shortcut action that prompts for a destination folder before creating the `.lnk`.
 - `CLAUDE.md` as the single source of truth for AI agents, with Codex and GitHub Copilot redirect files.
@@ -29,6 +32,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `EnumDisplaySettings`, `ChangeDisplaySettingsEx`, `SetWindowPos`; no WinForms dependency).
 
 ### Changed
+- Account switching now starts Steam only once after applying the target account, removing the
+  intermediate launch, second kill, and relaunch cycle.
 - **Rebranded from SteamSwitcher to EnigmaLauncher.** Install path is now
   `%LOCALAPPDATA%\EnigmaLauncher\`. Existing v1.0.0 installations are migrated automatically
   on first launch (data copied, shortcuts rewritten, old folder preserved as fallback).

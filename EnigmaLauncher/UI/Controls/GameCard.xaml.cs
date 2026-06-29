@@ -19,6 +19,9 @@ public partial class GameCard : UserControl
     /// <summary>Raised when the user clicks Play or double-clicks the card.</summary>
     public event EventHandler<GameInfo>? PlayRequested;
 
+    /// <summary>Raised when the user asks to open the game in its store library.</summary>
+    public event EventHandler<GameInfo>? OpenInLibraryRequested;
+
     /// <summary>Raised when the user clicks Create Desktop Shortcut.</summary>
     public event EventHandler<GameInfo>? ShortcutRequested;
 
@@ -51,6 +54,8 @@ public partial class GameCard : UserControl
             DesktopShortcutButton.ToolTip   = message;
             CustomShortcutButton.IsEnabled  = false;
             CustomShortcutButton.ToolTip    = message;
+            OpenInLibraryButton.IsEnabled   = false;
+            OpenInLibraryButton.ToolTip     = message;
         }
     }
 
@@ -65,6 +70,13 @@ public partial class GameCard : UserControl
     {
         if (Game is not null)
             PlayRequested?.Invoke(this, Game);
+    }
+
+    private void OpenInLibraryButton_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (Game is not null)
+            OpenInLibraryRequested?.Invoke(this, Game);
     }
 
     private void DesktopShortcutButton_Click(object sender, RoutedEventArgs e)

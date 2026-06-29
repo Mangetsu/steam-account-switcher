@@ -32,6 +32,8 @@ launches the game. No dialog boxes, no password prompts, no manual steps.
 - 🏷️ **Account filter** — click an account pill to see only their games
 - 🔗 **Desktop shortcuts** — generate per-game `.lnk` files with the game's own icon
 - 👤 **Header account switcher** — switch accounts directly from the main window without launching a game
+- ▶ **Start Steam** — open the Steam client directly from the header without launching a game
+- 📚 **Open in Steam Library** — open a card's game details, switching to its owner account first when needed
 - ⚡ **Zero config** — Steam path and all accounts detected automatically from the Windows registry
 
 ## How it works
@@ -43,7 +45,7 @@ When you double-click a game shortcut:
 3. If a switch is needed, it:
    - Writes `AutoLoginUser` to the registry
    - Patches `loginusers.vdf` (sets `MostRecent`, `AllowAutoLogin`, and `Timestamp` for the target account)
-   - Kills all Steam processes, starts Steam once to commit state, kills it again, then restarts it with `-silent`
+   - Kills all Steam processes, applies the account changes, then starts Steam once with `-silent`
    - Waits for `ActiveProcess\ActiveUser` to become non-zero (signed in)
    - Fires `steam://rungameid/<appid>` at the running client → game launches
 
@@ -92,6 +94,8 @@ Run `EnigmaLauncher.exe` with no arguments to open the library GUI:
 - **Play (hover)** — hover a card and click ▶ to launch the game (switches account if needed)
 - **Shortcut (hover)** — hover a card and click 🔗 to create a desktop shortcut
 - **Account badge (header)** — click the account name + ▾ to switch accounts
+- **Steam button (header)** — start or focus Steam without launching a game
+- **Open in Steam Library (game card)** — switch to the card's owner account when needed, then open its Library details page without launching it
 
 ### Shortcuts
 

@@ -46,6 +46,12 @@
                         </StackPanel>
                     </Button>
 
+                    <Button Content="&#x25B6; Steam"
+                            Style="{StaticResource IconButton}"
+                            Margin="8,0,0,0"
+                            Click="StartSteamButton_Click"
+                            ToolTip="Start or open Steam"/>
+
                     <Popup x:Name="AccountSwitcherPopup"
                            PlacementTarget="{Binding ElementName=AccountSwitchButton}"
                            Placement="Bottom" VerticalOffset="4"

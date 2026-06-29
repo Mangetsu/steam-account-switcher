@@ -52,6 +52,19 @@ public class AccountSwitcher
     }
 
     /// <summary>
+    /// Switches to <paramref name="target"/> and opens <paramref name="appId"/>
+    /// in the Steam Library without launching it.
+    /// </summary>
+    public async Task SwitchAndOpenLibraryAsync(SteamAccount target, int appId, IProgress<string>? status = null)
+    {
+        if (!await SwitchCoreAsync(target, status)) return;
+
+        await Task.Delay(500);
+        status?.Report("Opening game in Steam Library...");
+        OpenGameInLibraryUri(appId);
+    }
+
+    /// <summary>
     /// Switches to <paramref name="target"/> and leaves Steam running signed-in,
     /// without launching any game.
     /// </summary>
@@ -67,7 +80,7 @@ public class AccountSwitcher
     // ── Shared switch core ─────────────────────────────────────────────────────
 
     /// <summary>
-    /// Performs all account-switching steps (registry, file patches, double-start)
+    /// Performs all account-switching steps (registry, file patches, Steam start)
     /// up to and including waiting for Steam to be fully signed in.
     /// Returns <c>true</c> if Steam is ready, <c>false</c> on timeout.
     /// </summary>
@@ -89,22 +102,11 @@ public class AccountSwitcher
         PatchConfigVdf();
         PatchLoginUsersVdf(target.SteamId64);
 
-        // 4. First Steam start — Steam reads our patches and writes its own internal
-        //    state for the target account.  It may briefly show a chooser prompt;
-        //    we kill it before the user can interact, then restart cleanly.
-        status?.Report("Initialising account session...");
-        LaunchSteamOnly();
-        await WaitForSteamProcessAsync(10);
-        await Task.Delay(4000);
-        await KillSteamProcessesAsync();
-        await Task.Delay(1000);
-
-        // 5. Second Steam start — internal state now matches the target account,
-        //    so Steam auto-logs in silently via -silent.
+        // 4. Start Steam once with the patched target account.
         status?.Report("Starting Steam...");
         LaunchSteamOnly();
 
-        // 6. Wait for Steam to be fully signed in.
+        // 5. Wait for Steam to be fully signed in.
         status?.Report("Waiting for Steam to sign in...");
         var ready = await WaitForSteamReadyAsync(SteamReadyTimeoutSeconds, status);
         if (!ready)
@@ -118,6 +120,12 @@ public class AccountSwitcher
     /// a second Steam process unnecessarily.
     /// </summary>
     public void LaunchDirect(int appId) => LaunchGameUri(appId);
+
+    /// <summary>Opens a game's details page in the running Steam client.</summary>
+    public void OpenGameInLibraryDirect(int appId) => OpenGameInLibraryUri(appId);
+
+    /// <summary>Starts Steam without launching a game.</summary>
+    public void StartClient() => LaunchSteamOnly();
 
     /// <summary>
     /// Starts Steam with no game argument so it silently auto-logs in.
@@ -145,6 +153,19 @@ public class AccountSwitcher
         Process.Start(new ProcessStartInfo
         {
             FileName        = $"steam://rungameid/{appId}",
+            UseShellExecute = true
+        });
+    }
+
+    /// <summary>
+    /// Navigates the Steam client to the game's Library details page without
+    /// issuing a game launch command.
+    /// </summary>
+    private static void OpenGameInLibraryUri(int appId)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName        = $"steam://nav/games/details/{appId}",
             UseShellExecute = true
         });
     }
@@ -276,22 +297,6 @@ public class AccountSwitcher
 
         // Final settle
         await Task.Delay(500);
-    }
-
-    /// <summary>
-    /// Waits until a <c>steam.exe</c> process is visible in the process list,
-    /// or the timeout elapses. Used to confirm the first-pass launch has started
-    /// before we kill it again.
-    /// </summary>
-    private static async Task WaitForSteamProcessAsync(int timeoutSeconds)
-    {
-        var deadline = DateTime.UtcNow.AddSeconds(timeoutSeconds);
-        while (DateTime.UtcNow < deadline)
-        {
-            if (Process.GetProcessesByName("steam").Length > 0)
-                return;
-            await Task.Delay(500);
-        }
     }
 
     private async Task<bool> WaitForSteamReadyAsync(int timeoutSeconds, IProgress<string>? status)

@@ -8,7 +8,7 @@ namespace EnigmaLauncher.Stores.Steam;
 /// existing internal Steam classes (SteamConfig, AccountManager, …).
 /// No Steam-specific types are exposed through the interface.
 /// </summary>
-public sealed class SteamStore : IAccountStore
+public sealed class SteamStore : IAccountStore, IStoreClientActions
 {
     // ── Palette for deterministic account badge colours ────────────────────────
     private static readonly string[] BadgePalette =
@@ -80,6 +80,21 @@ public sealed class SteamStore : IAccountStore
             && long.TryParse(game.OwnerAccountId, out var id) ? id : null;
 
         return SteamOperations.LaunchGame(_config, appId, ownerSteamId64);
+    }
+
+    // ── IStoreClientActions ──────────────────────────────────────────────────
+
+    public void StartClient() => SteamOperations.StartClient(_config);
+
+    public Func<IProgress<string>?, Task> BuildOpenInLibraryOperation(GameInfo game)
+    {
+        if (!int.TryParse(game.GameId, out var appId))
+            throw new InvalidOperationException($"Invalid Steam AppId '{game.GameId}'.");
+
+        long? ownerSteamId64 = game.OwnerAccountId is not null
+            && long.TryParse(game.OwnerAccountId, out var id) ? id : null;
+
+        return SteamOperations.OpenGameInLibrary(_config, appId, ownerSteamId64);
     }
 
     // ── IAccountStore ──────────────────────────────────────────────────────────

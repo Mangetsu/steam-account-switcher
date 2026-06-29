@@ -8,6 +8,13 @@
 /// </summary>
 public static class SteamOperations
 {
+    /// <summary>Starts Steam without launching a game.</summary>
+    public static void StartClient(SteamConfig config)
+    {
+        var accounts = new AccountManager(config);
+        new AccountSwitcher(config, accounts).StartClient();
+    }
+
     /// <summary>
     /// Returns an operation that launches <paramref name="appId"/>,
     /// switching Steam accounts first if needed.
@@ -44,6 +51,41 @@ public static class SteamOperations
                     "Log in to that account in Steam with 'Remember me' checked.");
 
             await switcher.SwitchAndLaunchAsync(owner, appId, progress);
+        };
+
+    /// <summary>
+    /// Returns an operation that opens a game in the Steam Library, switching
+    /// accounts first when the selected game belongs to another account.
+    /// </summary>
+    public static Func<IProgress<string>?, Task> OpenGameInLibrary(
+        SteamConfig config, int appId, long? ownerSteamId64 = null)
+        => async progress =>
+        {
+            var accounts = new AccountManager(config);
+            var scanner  = new LibraryScanner(config);
+            var switcher = new AccountSwitcher(config, accounts);
+
+            var game = scanner.FindGame(appId, ownerSteamId64)
+                ?? throw new InvalidOperationException(
+                    $"Game {appId} was not found for the selected Steam account.");
+
+            var owner = game.LastOwnerSteamId64 != 0
+                ? accounts.GetBySteamId64(game.LastOwnerSteamId64)
+                : null;
+
+            if (owner is null || !switcher.IsSwitchNeeded(owner))
+            {
+                switcher.OpenGameInLibraryDirect(appId);
+                progress?.Report($"Opened {game.Name} in Steam Library!");
+                return;
+            }
+
+            if (!owner.CanAutoSwitch)
+                throw new InvalidOperationException(
+                    $"Cannot auto-switch to '{owner.PersonaName}'.\n" +
+                    "Log in to that account in Steam with 'Remember me' checked.");
+
+            await switcher.SwitchAndOpenLibraryAsync(owner, appId, progress);
         };
 
     /// <summary>

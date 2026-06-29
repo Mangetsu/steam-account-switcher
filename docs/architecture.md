@@ -17,10 +17,12 @@ can be added later without touching the UI or launch flow.
 | `GameInfo` | Store-agnostic game model (`StoreId`, `GameId`, `Name`, `OwnerAccountId`, …) |
 | `AccountInfo` | Store-agnostic account model (`StoreId`, `AccountId`, `DisplayName`, `CanAutoSwitch`, …) |
 | `StoreRegistry` | Discovers and holds all registered stores; aggregates games and accounts across them |
-| `SteamStore` | Implements `IAccountStore`; delegates to the internal `Steam/` classes |
+| `SteamStore` | Implements `IAccountStore` and `IStoreClientActions`; delegates to the internal `Steam/` classes |
 
-Steam is currently the only active store. The UI binds exclusively to `IAccountStore` and
+Steam is currently the only active store. The UI binds exclusively to store interfaces plus
 `GameInfo`/`AccountInfo` — no Steam-specific types leak into the presentation layer.
+Optional client navigation is exposed through `IStoreClientActions`, allowing the header to start
+the client and game cards to open library details without coupling the UI to Steam classes.
 
 ---
 
@@ -42,24 +44,19 @@ an account-picker dialog instead of logging in silently.
 
 ---
 
-## The double-start pattern
+## Single-start switching
 
-A single `steam.exe -silent` after patching is not enough. On the first launch after a switch,
-Steam sometimes shows a chooser prompt because it has internal state (not just VDF files) from
-the previous session that conflicts with our patches.
+After Steam exits, EnigmaLauncher patches the registry and VDF files, then starts Steam once with
+`steam.exe -silent`.
 
-The solution — discovered empirically — is a **two-pass start**:
+The switch sequence is:
 
 ```
-Kill Steam → patch files → [First start] → wait ~4 s → kill again → [Second start] → wait for sign-in
+Kill Steam → patch files → start Steam with -silent → wait for sign-in
 ```
 
-**First start:** Steam reads our patches and writes its own internal auth state for the target
-account (updating in-memory caches, re-reading loginusers.vdf, etc.). It may briefly show
-a UI prompt. We kill it before the user can interact.
-
-**Second start:** Steam's internal state now matches our patches. It auto-logs in silently via
-`-silent`, suppressing all startup UI. We then poll `ActiveProcess\ActiveUser` until it's non-zero.
+Steam reads the patched target account and auto-logs in via `-silent`. EnigmaLauncher then polls
+`ActiveProcess\ActiveUser` until it is non-zero. There is no intermediate launch and second kill.
 
 ---
 
@@ -135,10 +132,16 @@ SteamStore.BuildLaunchOperation(game)
     └─ [Different account needed]
             AccountSwitcher.SwitchAndLaunchAsync
                 ├─ Patch registry + VDF files
-                ├─ Double-start Steam (first pass commit, second pass login)
+                ├─ Start Steam once with -silent
                 ├─ Poll ActiveProcess\ActiveUser every 500 ms (45 s timeout)
                 └─ steam://rungameid/<appid>   → game launches
 ```
+
+The card's **Open in Steam Library** action follows the same owner comparison. When the selected
+card belongs to another remembered account, `SwitchAndOpenLibraryAsync` completes the account
+switch first; it then navigates with `steam://nav/games/details/<appid>` instead of sending a
+`rungameid` command, so the game is not launched. The header **Steam** button starts
+`steam.exe -silent` directly and does not alter the selected account.
 
 ---
 
@@ -231,7 +234,7 @@ On corrupt or missing file it starts with safe defaults.
 | Class | Responsibility |
 |---|---|
 | `StoreRegistry` | Discovers and holds all `IGameStore` / `IAccountStore` instances; aggregates games and accounts |
-| `SteamStore` | Implements `IAccountStore`; adapter between the UI/store layer and Steam internals |
+| `SteamStore` | Implements `IAccountStore` and `IStoreClientActions`; adapter between the UI/store layer and Steam internals |
 | `SteamConfig` | Registry reader; exposes all Steam paths and live session values |
 | `AccountManager` | Parses `loginusers.vdf`, provides current-account detection with registry fallback |
 | `LibraryScanner` | Parses `libraryfolders.vdf` + all `.acf` manifests; returns deduplicated `GameEntry` list |

@@ -15,7 +15,7 @@ Key project areas:
 
 - `EnigmaLauncher/Steam/`: Steam registry, VDF, library scanning, account switching, artwork logic (internal).
 - `EnigmaLauncher/Stores/`: Store abstraction (`IGameStore`, `IAccountStore`, `GameInfo`, `AccountInfo`, `StoreRegistry`).
-- `EnigmaLauncher/Stores/Steam/SteamStore.cs`: `IAccountStore` adapter for Steam.
+- `EnigmaLauncher/Stores/Steam/SteamStore.cs`: `IAccountStore` / `IStoreClientActions` adapter for Steam.
 - `EnigmaLauncher/Settings/`: `SettingsStore` — reads/writes `data\settings.json`.
 - `EnigmaLauncher/Display/`: `DisplayManager` and `MonitorInfo` — multi-monitor support.
 - `EnigmaLauncher/Migration/`: `MigrationService` — one-time upgrade from SteamSwitcher v1.0.0.
@@ -118,11 +118,14 @@ Main window header:
 
 - `About` button sits next to `Refresh`.
 - Account badge opens the account switcher popup.
+- `Steam` button beside the account badge starts or opens Steam without launching a game.
 - Display badge (🖥) opens the display switcher popup (set Windows primary monitor).
 
 Game card hover actions:
 
 - `Play`: launches the game, switching account if needed, routing to preferred display.
+- `Open in Steam Library`: switches to the selected owner account if needed, then opens the game's
+  Steam Library details page without launching it.
 - `Create Desktop Shortcut`: creates a `.lnk` on the Desktop.
 - `Create a shortcut`: prompts for a destination folder before creating the `.lnk`.
 - `Display` (🖥): opens the per-game display settings popup (target monitor + switch method).

@@ -115,7 +115,7 @@ EnigmaLauncher/
 │   │   ├── AccountInfo.cs           # Store-agnostic account model
 │   │   ├── StoreRegistry.cs         # Discovers and holds registered stores
 │   │   └── Steam/
-│   │       └── SteamStore.cs        # IAccountStore adapter for Steam
+│   │       └── SteamStore.cs        # Account + client-action adapter for Steam
 │   ├── Settings/
 │   │   └── SettingsStore.cs         # data\settings.json reader/writer
 │   ├── Display/

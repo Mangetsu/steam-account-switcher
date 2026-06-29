@@ -98,6 +98,13 @@
                                 FontSize="11.5"
                                 Margin="0,8,0,0"
                                 Click="DesktopShortcutButton_Click"/>
+                        <Button x:Name="OpenInLibraryButton"
+                                Content="Open in Steam Library"
+                                Style="{StaticResource GameActionButton}"
+                                Background="#FF2A475E"
+                                Margin="0,8,0,0"
+                                ToolTip="Switch account if needed, then open this game in Steam Library"
+                                Click="OpenInLibraryButton_Click"/>
                         <Button x:Name="CustomShortcutButton"
                                 Content="&#x1F517;  Create a shortcut"
                                 Style="{StaticResource GameActionButton}"
