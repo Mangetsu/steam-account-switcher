@@ -12,6 +12,10 @@ echo Stopping running EnigmaLauncher processes...
 powershell -NoProfile -NonInteractive -Command ^
   "Get-Process EnigmaLauncher -ErrorAction SilentlyContinue | Stop-Process -Force"
 
+echo Stopping running SteamSwitcher (v1.0.0) processes...
+powershell -NoProfile -NonInteractive -Command ^
+  "Get-Process SteamSwitcher -ErrorAction SilentlyContinue | Stop-Process -Force"
+
 if exist "%STAGE%" rmdir /s /q "%STAGE%"
 mkdir "%STAGE%\app"
 

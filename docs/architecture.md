@@ -149,13 +149,26 @@ switch first; it then navigates with `steam://nav/games/details/<appid>` instead
 
 Priority order for each game:
 
-1. **Local Steam cache** — `<Steam>\appcache\librarycache\<appid>\library_600x900.jpg` (flat layout)
-2. **Local Steam cache** — same filename in a hash subdirectory (Steam sometimes nests files)
-3. **CDN download** — `https://cdn.akamai.steamstatic.com/steam/apps/<appid>/library_600x900.jpg`
+1. **Local Steam cache (good quality)** — `<Steam>\appcache\librarycache\<appid>\library_600x900.jpg`,
+   `library_capsule.jpg`, or `library_header.jpg`, checked flat and in hash subdirectories (Steam
+   sometimes nests files)
+2. **CDN download** — `https://cdn.cloudflare.steamstatic.com/steam/apps/<appid>/library_600x900.jpg`
    saved to `%LOCALAPPDATA%\EnigmaLauncher\data\cache\<appid>\`
+3. **CDN download (fallback)** — same CDN, `header.jpg` (460×215 landscape)
+4. **Local Steam cache (fallback)** — `<appid>\header.jpg`, used only when the CDN is unreachable
+   or has nothing for that app
+
+`header.jpg` is deliberately last: it's a low-res landscape asset, and stretching it into the
+card's tall portrait slot looks cropped and pixelated. It's only ever used when nothing better
+is available locally or from the CDN.
 
 Downloads happen on a background `Task.Run` per game and are applied via `Dispatcher.InvokeAsync`
 without blocking the UI.
+
+Clicking **Refresh** in the header deletes everything under `data\cache\` (`MainWindow.ClearArtworkCache`)
+before rescanning, so a bad or corrupt downloaded cover gets re-fetched clean on retry. Steam's own
+local cache under `appcache\librarycache\` is untouched (it isn't ours to delete), as are
+`data\icons\` and `data\settings.json` (per-game display settings, migration flag).
 
 ---
 
@@ -181,12 +194,21 @@ writing a multi-size `.ico` file.
 On first launch after upgrading from the original SteamSwitcher install
 (`%LOCALAPPDATA%\SteamSwitcher\`), `MigrationService` runs automatically:
 
-1. Copies `data\cache\` and `data\icons\` to the new location.
-2. Scans Desktop and Start Menu for `.lnk` shortcuts pointing to the old `SteamSwitcher.exe`
-   and rewrites them to target `EnigmaLauncher.exe`.
-3. Records the migration as complete in `data\settings.json`.
-4. The old `%LOCALAPPDATA%\SteamSwitcher\` folder is **not deleted** automatically; any shortcuts
-   that weren't found by the scan can still run the old exe until the user cleans up manually.
+1. Kills the old `SteamSwitcher.exe` process if it's still running, so its files aren't locked
+   for the steps below.
+2. Copies `data\cache\` and `data\icons\` to the new location.
+3. Scans Desktop and Start Menu for `.lnk` shortcuts pointing to the old `SteamSwitcher.exe`
+   and rewrites them to target `EnigmaLauncher.exe`, preserving arguments.
+4. Prompts the user with a Yes/No dialog to delete the old `%LOCALAPPDATA%\SteamSwitcher\`
+   folder entirely. There is no redirect shortcut left behind — a `.lnk` in the old folder
+   can't transparently stand in for the old `.exe` anyway, since a double-clicked shortcut's
+   `TargetPath` is resolved and launched directly; it won't chain into another `.lnk`.
+   - **Yes:** deletes the folder, then removes any Desktop `.lnk` still targeting a path under
+     it that step 3 didn't already catch (e.g. a shortcut to the folder itself, or to a
+     differently-named exe inside it) — otherwise it would now point at nothing.
+   - **No:** the old folder and any of its shortcuts are left completely untouched.
+5. Records the migration as complete in `data\settings.json` either way, so the prompt is
+   only ever shown once.
 
 ---
 
@@ -200,8 +222,34 @@ Selecting a monitor calls `DisplayManager.SetPrimary(deviceName)`, which:
 
 1. Reads each active monitor's current virtual-desktop position (`DEVMODE.dmPositionX/Y`).
 2. Shifts all positions so the target lands at (0, 0) using `ChangeDisplaySettingsEx` with
-   `CDS_UPDATEREGISTRY | CDS_NORESET` per monitor.
-3. Commits the batch with a final `ChangeDisplaySettingsEx(null, …, 0)`.
+   `CDS_UPDATEREGISTRY | CDS_NORESET` per monitor — the target device is applied first. Each call's
+   `dmFields` declares `DM_POSITION` together with `DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT |
+   DM_DISPLAYFREQUENCY` (values unchanged, read from the existing mode) — some drivers reject a
+   DEVMODE that only declares `DM_POSITION` with `DISP_CHANGE_FAILED` (return `-1`), expecting a
+   fully-described mode even when only the position is actually changing.
+3. Commits the batch with a final `ChangeDisplaySettingsEx(null, IntPtr.Zero, …, 0, …)` — this
+   commit call requires a true `NULL` devmode pointer, so `DisplayManager` declares a second
+   `ChangeDisplaySettingsEx` P/Invoke overload taking `IntPtr` (the primary `ref DEVMODE` overload
+   cannot express `NULL`) and uses it only for this final call.
+
+**Troubleshooting `DISP_CHANGE_FAILED` (-1) that persists across code fixes:** repeated failed
+`ChangeDisplaySettingsEx` calls (from earlier bugs, crashed test runs, etc.) can leave stale,
+inconsistent display-config state in the registry that keeps tripping this legacy API even once
+the calling code is correct — `CDS_UPDATEREGISTRY` writes immediately regardless of `CDS_NORESET`.
+Manually changing the primary display once via Windows Settings → System → Display (which uses
+the modern CCD API, `QueryDisplayConfig`/`SetDisplayConfig`) forces a clean, consistent rewrite of
+that state and has been observed to unstick this. If `SetPrimary` starts failing consistently,
+try that before assuming the code regressed.
+
+`SetPrimary` must be called on the UI thread — `ChangeDisplaySettingsEx` reliably returns
+`DISP_CHANGE_FAILED` when invoked from a `Task.Run` thread-pool thread, even though the call
+itself is fast on the UI thread. (An earlier revision routed it through `Task.Run` with a timeout
+to guard against a driver hang; that turned out to both break the call and be unnecessary — the
+full-DEVMODE fix above is what actually prevents the hang.) Both call sites
+(`MainWindow.OnDisplaySwitchItemClick` and `ApplyDisplaySettings`) go through the shared
+`MainWindow.SetPrimaryWithTimeoutAsync()` helper, which just calls it directly; the
+`SetPrimaryThenRevert` delayed revert (`RevertPrimaryAfterDelayAsync`) uses a plain
+`await Task.Delay(...)` (no `Task.Run`) so its continuation resumes on the UI thread too.
 
 ### Per-game display settings
 
@@ -211,7 +259,7 @@ Each game card stores a `GameDisplaySettings` entry in `data\settings.json` unde
 | Field | Type | Meaning |
 |---|---|---|
 | `TargetDevice` | `string?` | GDI device name, e.g. `"\\.\DISPLAY2"`. Null → no override. |
-| `Method` | `DisplaySwitchMethod` | `None` / `SetPrimary` / `MoveWindow` |
+| `Method` | `DisplaySwitchMethod` | `None` / `SetPrimary` / `MoveWindow` / `SetPrimaryThenRevert` |
 
 `MainWindow.ApplyDisplaySettings()` wraps the store's `BuildLaunchOperation()` lambda:
 
@@ -220,6 +268,37 @@ Each game card stores a `GameDisplaySettings` entry in `data\settings.json` unde
   `DisplayManager.MoveWindowToMonitor()`, which reads the target monitor's virtual-desktop
   origin from `EnumDisplaySettings` and uses `SetWindowPos` on the current foreground window.
   Best-effort — no crash if the window can't be found.
+- **`SetPrimaryThenRevert`** — same as `SetPrimary` before launch, but also records whichever
+  monitor was primary beforehand and, `RevertDelaySeconds` after the launch operation completes,
+  calls `SetPrimary()` again to switch back to it (fire-and-forget, best-effort). The delay
+  (1–60 s, default 8) is configurable per-game via a stepper in the display-settings popup, since
+  how long a game takes to create its fullscreen surface varies. Exists so the taskbar
+  and notification/volume tray — which only live on the primary monitor by default — return to
+  the user's main screen while a fullscreen game keeps running on the target monitor. Risky for
+  exclusive-fullscreen games: if the revert lands before the game finishes creating its
+  fullscreen swapchain, the game can end up rendering on the wrong monitor, get kicked out of
+  exclusive mode, or flicker/black-screen.
+
+  Windows' **Settings → Personalization → Taskbar → Multiple displays → Show taskbar on all
+  displays** does *not* fully solve the underlying problem: it mirrors pinned apps and the clock
+  onto every monitor, but the full system-tray icons (volume, network, language, action center)
+  only ever render on whichever monitor is currently primary, confirmed by testing — even with
+  that setting on. `SetPrimaryThenRevert` is the actual fix for getting tray access back while a
+  fullscreen game runs on a non-primary monitor, not a risky workaround for a problem that has a
+  safer native solution.
+
+Both `SetPrimary` paths above go through `MainWindow.SetPrimaryWithTimeoutAsync()`, described above.
+
+### Display-settings popup and double-click
+
+`GameCard` subscribes to its own `MouseDoubleClick` (a bubbling routed event) to launch the game
+on double-click anywhere on the card. A `Popup`'s content renders in a separate visual tree but
+stays connected to its host through the *logical* tree, so routed events raised inside the
+display-settings popup (the revert-delay stepper's +/- buttons, the monitor/method combo boxes)
+still bubble into that handler. Two fast clicks on a stepper button, or two quick combo-box
+selections, could be misread as a double-click on the card and launch the game with the
+previously-saved settings. `GameCard.OnMouseDoubleClick` now ignores clicks while
+`DisplaySettingsPopup.IsOpen` is true.
 
 ### Settings persistence
 
