@@ -256,7 +256,10 @@ public static class DisplayManager
         }
 
         // Commit all pending changes (true NULL devmode required — see overload above)
-        ChangeDisplaySettingsEx(null, IntPtr.Zero, IntPtr.Zero, 0, IntPtr.Zero);
+        var commitRet = ChangeDisplaySettingsEx(null, IntPtr.Zero, IntPtr.Zero, 0, IntPtr.Zero);
+        if (commitRet != DISP_CHANGE_SUCCESSFUL)
+            throw new InvalidOperationException(
+                $"ChangeDisplaySettingsEx commit failed (return {commitRet}).");
     }
 
     /// <summary>

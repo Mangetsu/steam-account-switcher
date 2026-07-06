@@ -165,6 +165,8 @@ public sealed class SteamStore : IAccountStore, IStoreClientActions
     {
         if (string.IsNullOrEmpty(accountName)) return "#6B7280";
         var hash = accountName.Aggregate(0, (h, c) => h * 31 + c);
-        return BadgePalette[Math.Abs(hash) % BadgePalette.Length];
+        // unchecked (uint) cast instead of Math.Abs: Math.Abs(int.MinValue) throws
+        // OverflowException since -int.MinValue doesn't fit in Int32.
+        return BadgePalette[(uint)hash % BadgePalette.Length];
     }
 }

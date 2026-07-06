@@ -51,7 +51,7 @@ public static class MigrationService
 
         KillOldProcess();
 
-        var newExePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+        var newExePath = GetOwnExePath();
 
         MigrateCacheAndIcons(oldRoot);
         RewriteShortcuts(oldRoot, newExePath);
@@ -84,6 +84,18 @@ public static class MigrationService
             }
         }
         catch { /* GetProcessesByName can throw on some locked-down systems */ }
+    }
+
+    /// <summary>
+    /// Resolves the running process's own exe path, best-effort. <c>MainModule</c> can throw
+    /// (e.g. Win32Exception on some locked-down systems); since this runs at startup, an
+    /// unhandled exception here would prevent the app from launching at all. A null return
+    /// means shortcut rewriting is skipped for this run rather than crashing startup.
+    /// </summary>
+    private static string? GetOwnExePath()
+    {
+        try { return System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName; }
+        catch { return null; }
     }
 
     // ── Step 2: copy data directories ─────────────────────────────────────────

@@ -128,7 +128,7 @@ EnigmaLauncher/
 │   ├── Settings/
 │   │   └── SettingsStore.cs         # data\settings.json reader/writer
 │   ├── Display/
-│   │   ├── MonitorInfo.cs           # Monitor model (device name, bounds, DPI)
+│   │   ├── MonitorInfo.cs           # Monitor model (device name, label, primary flag, resolution)
 │   │   └── DisplayManager.cs        # Enumerate monitors, set primary display
 │   ├── Migration/
 │   │   └── MigrationService.cs      # One-time upgrade from SteamSwitcher v1.0.0
@@ -172,4 +172,5 @@ EnigmaLauncher/
 | [System.Drawing.Common](https://www.nuget.org/packages/System.Drawing.Common) | 8.0.x | ICO generation for shortcuts |
 
 All other functionality uses built-in .NET 8 APIs (WPF, `Microsoft.Win32.Registry`,
-`System.Net.Http`, `System.Diagnostics.Process`, `System.Windows.Forms.Screen`).
+`System.Net.Http`, `System.Diagnostics.Process`). Monitor enumeration and primary-display
+switching use raw Win32 P/Invoke (`DisplayManager`) — no `System.Windows.Forms` dependency.

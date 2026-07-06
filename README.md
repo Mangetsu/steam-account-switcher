@@ -102,9 +102,12 @@ Run `EnigmaLauncher.exe` with no arguments to open the library GUI:
 Click **Create Shortcut** on any game card. A `.lnk` is placed on your Desktop:
 
 ```
-Target:   %LOCALAPPDATA%\EnigmaLauncher\EnigmaLauncher.exe  --launch <appid>
-Icon:     game capsule art converted to .ico
+Target:   %LOCALAPPDATA%\EnigmaLauncher\EnigmaLauncher.exe  --launch <appid> [--owner <steamid64>]
+Icon:     %LOCALAPPDATA%\EnigmaLauncher\data\icons\<appid>.ico  (game capsule art converted to .ico)
 ```
+
+`--owner` is included whenever the shortcut was created from a card with a known owning account,
+so the switch step always targets the right one.
 
 Double-clicking the shortcut runs the full switch + launch flow headlessly.
 
