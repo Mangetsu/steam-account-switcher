@@ -1,15 +1,15 @@
 <div align="center">
 
-# SteamSwitcher
+# EnigmaLauncher
 
-**Instantly switch Steam accounts and launch games with less friction.**
+**Smart game launcher for multi-monitor, multi-account Windows setups.**
 
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
-[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/download/dotnet/8)
-[![License: PolyForm NC](https://img.shields.io/badge/license-PolyForm%20NC%201.0-blue)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/8)
+[![License](https://img.shields.io/badge/license-PolyForm%20NC-22c55e)](LICENSE)
 [![Steam](https://img.shields.io/badge/Steam-compatible-1b2838?logo=steam&logoColor=white)](https://store.steampowered.com)
 
-![SteamSwitcher preview](docs/preview.png)
+![EnigmaLauncher preview](docs/preview.png)
 
 </div>
 
@@ -17,135 +17,132 @@
 
 ## What is this?
 
-SteamSwitcher is a Windows app for PCs with multiple remembered Steam accounts. It scans installed
-Steam games, detects which account owns each game, silently switches Steam to the right account when
-possible, and launches the game.
+If you share a Windows PC with multiple Steam accounts (or just keep two accounts yourself),
+switching between them to play a game is tedious: sign out, sign in, wait, launch.
+
+EnigmaLauncher fixes that. Create a desktop shortcut for any game. Double-click it — the app
+detects which account owns the game, silently restarts Steam under the right account, and
+launches the game. No dialog boxes, no password prompts, no manual steps.
 
 ## Features
 
-- Unified game grid showing installed games across all Steam accounts
-- Silent account switching using Steam registry and VDF state
-- Game artwork from Steam's local cache with CDN fallback
-- Account filter bar and header account switcher
-- Per-game shortcuts with generated `.ico` files
-- One-click **Create Desktop Shortcut** action
-- **Create a shortcut** action that prompts for the destination folder
-- About screen with version/runtime details and GitHub link
-- Clean self-contained install layout under `%LOCALAPPDATA%\SteamSwitcher`
+- 🎮 **Unified library** — one grid showing every installed game across all your accounts
+- 🔄 **Silent account switching** — kills Steam, patches the right config files, restarts it, and signs in automatically
+- 🖼️ **Game artwork** — pulls capsule art from Steam's local cache; downloads from CDN if missing
+- 🏷️ **Account filter** — click an account pill to see only their games
+- 🔗 **Desktop shortcuts** — generate per-game `.lnk` files with the game's own icon
+- 👤 **Header account switcher** — switch accounts directly from the main window without launching a game
+- ▶ **Start Steam** — open the Steam client directly from the header without launching a game
+- 📚 **Open in Steam Library** — open a card's game details, switching to its owner account first when needed
+- ⚡ **Zero config** — Steam path and all accounts detected automatically from the Windows registry
+
+## How it works
+
+When you double-click a game shortcut:
+
+1. Reads the current Steam session from the Windows registry (`ActiveProcess\ActiveUser`)
+2. Reads the game's owner from its `.acf` manifest (`LastOwner` field)
+3. If a switch is needed, it:
+   - Writes `AutoLoginUser` to the registry
+   - Patches `loginusers.vdf` (sets `MostRecent`, `AllowAutoLogin`, and `Timestamp` for the target account)
+   - Kills all Steam processes, applies the account changes, then starts Steam once with `-silent`
+   - Waits for `ActiveProcess\ActiveUser` to become non-zero (signed in)
+   - Fires `steam://rungameid/<appid>` at the running client → game launches
+
+See [`docs/architecture.md`](docs/architecture.md) for the full technical breakdown.
 
 ## Requirements
 
-- Windows 10 or 11, 64-bit
-- Steam installed
-- Each account must have been signed into at least once with **Remember me** checked
+- Windows 10 or 11 (64-bit)
+- [Steam](https://store.steampowered.com/about/) installed
+- Each account must have been signed into at least once with **"Remember me"** checked
 
 ## Installation
 
-### Build from source
+### Option A — Build from source (recommended)
 
 ```cmd
 git clone https://github.com/Mangetsu/steam-account-switcher.git
-cd SteamSwitcher
+cd steam-account-switcher
 build.bat
 ```
 
-The app is published to `%LOCALAPPDATA%\SteamSwitcher\SteamSwitcher.exe`.
-If SteamSwitcher is already running, `build.bat` stops it before replacing files, then launches the
-freshly built app when the build finishes.
+The app is published to `%LOCALAPPDATA%\EnigmaLauncher\EnigmaLauncher.exe`.
 
-The install root stays tidy:
-
-```text
-%LOCALAPPDATA%\SteamSwitcher\
-  SteamSwitcher.exe
-  app\
-  data\
-```
-
-### Download release
+### Option B — Download release
 
 Download the latest zip from the [Releases](../../releases) page, extract it to
-`%LOCALAPPDATA%\SteamSwitcher\`, and run `SteamSwitcher.exe`.
+`%LOCALAPPDATA%\EnigmaLauncher\`, and run `EnigmaLauncher.exe`.
+
+### Antivirus note
+
+The binary is **not code-signed** (a certificate costs ~$300/year). Reputation-based AV engines
+(Norton, Defender SmartScreen) may flag it on first run because they've never seen this specific
+file before. This is a false positive.
+
+Fix: add `%LOCALAPPDATA%\EnigmaLauncher` to your AV exclusion list, then restore the file from
+quarantine. See [`docs/building.md`](docs/building.md#antivirus-exclusion) for per-AV instructions.
 
 ## Usage
 
-Run `SteamSwitcher.exe` with no arguments to open the game library GUI.
+### Main window
 
-If the same game is installed for multiple remembered Steam accounts, it appears once per owning
-account so you can choose which account should launch it. SteamSwitcher uses both manifest
-`LastOwner` data and per-user Steam ticket data to detect those account-specific entries.
+Run `EnigmaLauncher.exe` with no arguments to open the library GUI:
 
-Game-card hover actions:
+- **Grid** — all installed games across all accounts, with artwork and owner badges
+- **Filter bar** — click an account name to show only their games
+- **Play (hover)** — hover a card and click ▶ to launch the game (switches account if needed)
+- **Shortcut (hover)** — hover a card and click 🔗 to create a desktop shortcut
+- **Account badge (header)** — click the account name + ▾ to switch accounts
+- **Steam button (header)** — start or focus Steam without launching a game
+- **Open in Steam Library (game card)** — switch to the card's owner account when needed, then open its Library details page without launching it
 
-- **Play**: launch the game, switching account if needed.
-- **Create Desktop Shortcut**: create a `.lnk` on the Desktop.
-- **Create a shortcut**: choose the folder where the `.lnk` should be created. The picker opens on
-  the Desktop by default.
+### Shortcuts
 
-Header actions:
+Click **Create Shortcut** on any game card. A `.lnk` is placed on your Desktop:
 
-- **Account badge**: switch accounts without launching a game.
-- **About**: view app metadata and GitHub link.
-- **Refresh**: reload accounts and installed games.
-
-Shortcut target format:
-
-```text
-Target:   %LOCALAPPDATA%\SteamSwitcher\SteamSwitcher.exe --launch <appid> --owner <steamid64>
-Icon:     %LOCALAPPDATA%\SteamSwitcher\data\icons\<appid>.ico
+```
+Target:   %LOCALAPPDATA%\EnigmaLauncher\EnigmaLauncher.exe  --launch <appid> [--owner <steamid64>]
+Icon:     %LOCALAPPDATA%\EnigmaLauncher\data\icons\<appid>.ico  (game capsule art converted to .ico)
 ```
 
-When the same game has multiple account cards, generated shortcut filenames include the account
-display name, for example `Yu-Gi-Oh! Duel Links (TheMangetsu).lnk`.
+`--owner` is included whenever the shortcut was created from a card with a known owning account,
+so the switch step always targets the right one.
 
-Double-clicking a shortcut runs the switch-and-launch flow.
+Double-clicking the shortcut runs the full switch + launch flow headlessly.
 
-## Documentation
+## Project structure
 
-- [Architecture](docs/architecture.md)
-- [Building](docs/building.md)
-- [Changelog](CHANGELOG.md)
-- [Agent guidelines](CLAUDE.md)
-
-`CLAUDE.md` is the single source of truth for AI agents. Claude, Codex, GitHub Copilot, and other
-agents should follow it before changing this repository.
-
-## Project Structure
-
-```text
-SteamSwitcher/
-├── SteamSwitcher/          # C# WPF project
-│   ├── Steam/              # Steam integration
-│   ├── UI/                 # WPF windows, controls, theme
+```
+EnigmaLauncher/
+├── EnigmaLauncher/         # C# WPF project (.NET 8)
+│   ├── Steam/              # Steam integration (config, accounts, switcher, scanner, artwork)
+│   ├── UI/                 # WPF windows, controls, dark theme
+│   │   ├── Controls/       # GameCard, AccountBadge reusable controls
+│   │   └── Styles/         # ResourceDictionary (Theme.xaml)
 │   ├── Shortcuts/          # .lnk creation via WScript.Shell COM
-│   ├── Assets/             # app icon assets
-│   ├── AppPaths.cs         # Local app data paths
-│   └── SteamSwitcher.csproj
+│   └── Assets/             # app_icon.ico
 ├── docs/
-│   ├── architecture.md
-│   └── building.md
+│   ├── architecture.md     # Technical deep-dive
+│   └── building.md         # Build instructions, dependencies
 ├── scripts/
-│   └── Publish-CleanLayout.ps1
-├── AGENTS.md               # Redirects agents to CLAUDE.md
-├── CLAUDE.md               # Agent source of truth
+│   └── Publish-CleanLayout.ps1  # Post-publish install layout script
+├── .editorconfig
+├── .gitignore
+├── build.bat               # One-click publish script
 ├── CHANGELOG.md
-├── README.md
-├── build.bat
-└── SteamSwitcher.sln
+├── LICENSE
+└── EnigmaLauncher.sln
 ```
 
 ## Contributing
 
-- Open an issue first for significant changes.
-- Keep PRs focused.
-- Update relevant docs in the same change.
-- Follow [`CLAUDE.md`](CLAUDE.md) when using AI coding agents.
+Issues and pull requests are welcome.
+
+- Open an issue first for any significant change so we can discuss it
+- Keep PRs focused — one feature or fix per PR
+- Follow the existing code style (enforced via `.editorconfig`)
 
 ## License
 
-This project is licensed under the **[PolyForm Noncommercial License 1.0.0](LICENSE)**.
-
-- **Non-commercial use** (personal projects, research, education, hobbyist, non-profit) is free.
-- **Commercial use** requires a separate paid license.
-
-© 2026 Badr Hakkari
+[PolyForm Noncommercial 1.0.0](LICENSE) © 2026 Badr Hakkari

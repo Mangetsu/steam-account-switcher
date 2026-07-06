@@ -2,13 +2,17 @@
 set ROOT=%~dp0
 cd /d "%ROOT%"
 
-echo === SteamSwitcher Build ===
+echo === EnigmaLauncher Build ===
 echo.
 
-set DEST=%LOCALAPPDATA%\SteamSwitcher
-set STAGE=%ROOT%.build\SteamSwitcher
+set DEST=%LOCALAPPDATA%\EnigmaLauncher
+set STAGE=%ROOT%.build\EnigmaLauncher
 
-echo Stopping running SteamSwitcher processes...
+echo Stopping running EnigmaLauncher processes...
+powershell -NoProfile -NonInteractive -Command ^
+  "Get-Process EnigmaLauncher -ErrorAction SilentlyContinue | Stop-Process -Force"
+
+echo Stopping running SteamSwitcher (v1.0.0) processes...
 powershell -NoProfile -NonInteractive -Command ^
   "Get-Process SteamSwitcher -ErrorAction SilentlyContinue | Stop-Process -Force"
 
@@ -19,7 +23,7 @@ REM Publish self-contained to a staged app folder (no single-file bundling).
 REM Single-file + IncludeNativeLibrariesForSelfExtract triggers AV false-positives
 REM because the exe self-extracts DLLs into %%TEMP%% at startup.
 REM Folder mode produces a plain host exe that AV engines do not flag.
-dotnet publish SteamSwitcher\SteamSwitcher.csproj ^
+dotnet publish EnigmaLauncher\EnigmaLauncher.csproj ^
   -c Release ^
   -r win-x64 ^
   --self-contained true ^
@@ -45,7 +49,7 @@ if errorlevel 1 (
 
 echo.
 echo BUILD COMPLETE.
-echo Installed to: %DEST%\SteamSwitcher.exe
+echo Installed to: %DEST%\EnigmaLauncher.exe
 
 REM Desktop shortcut
 echo.
@@ -53,28 +57,28 @@ echo Creating desktop shortcut...
 powershell -NoProfile -NonInteractive -Command ^
   "$dest = '%DEST%';" ^
   "$ws = New-Object -ComObject WScript.Shell;" ^
-  "$s = $ws.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'), 'SteamSwitcher.lnk'));" ^
-  "$s.TargetPath = $dest + '\SteamSwitcher.exe';" ^
+  "$s = $ws.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'), 'EnigmaLauncher.lnk'));" ^
+  "$s.TargetPath = $dest + '\EnigmaLauncher.exe';" ^
   "$s.WorkingDirectory = $dest;" ^
-  "$s.IconLocation = $dest + '\SteamSwitcher.exe,0';" ^
+  "$s.IconLocation = $dest + '\EnigmaLauncher.exe,0';" ^
   "$s.Save()"
 
 if errorlevel 1 (
     echo WARNING: Could not create desktop shortcut.
 ) else (
-    echo Desktop shortcut created: %USERPROFILE%\Desktop\SteamSwitcher.lnk
+    echo Desktop shortcut created: %USERPROFILE%\Desktop\EnigmaLauncher.lnk
 )
 
 echo.
-echo Launching SteamSwitcher...
-start "" "%DEST%\SteamSwitcher.exe"
+echo Launching EnigmaLauncher...
+start "" "%DEST%\EnigmaLauncher.exe"
 
 echo.
 echo NOTE: If Norton quarantines the exe, add an exclusion for:
 echo   %DEST%
 echo.
 echo To use:
-echo   - Run SteamSwitcher.exe to open the game library GUI
+echo   - Run EnigmaLauncher.exe to open the game library GUI
 echo   - Click "Create Shortcut" on any game to add a desktop shortcut
 echo   - Double-click a shortcut to auto-switch accounts and launch the game
 echo.

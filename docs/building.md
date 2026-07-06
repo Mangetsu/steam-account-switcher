@@ -1,125 +1,176 @@
-# Building SteamSwitcher
+# Building EnigmaLauncher
 
 ## Prerequisites
 
 | Tool | Version | Download |
 |---|---|---|
-| Windows | 10 or 11, 64-bit | https://www.microsoft.com/windows |
+| Windows | 10 or 11 (64-bit) | — |
 | .NET SDK | 8.0 or later | https://dotnet.microsoft.com/download/dotnet/8 |
-| Git | any recent version | https://git-scm.com |
+| Git | any | https://git-scm.com |
 
-Visual Studio 2022 with the .NET desktop development workload is recommended for IDE work, but it
-is not required for command-line builds.
+Visual Studio 2022 (with the **.NET desktop development** workload) is recommended for IDE work
+but is not required for building.
 
-## Quick Build
+---
+
+## App version
+
+The app version is set in one place: the `<Version>` property in
+`EnigmaLauncher/EnigmaLauncher.csproj`. The SDK derives `AssemblyVersion`/`FileVersion` from it at
+build time, and the About dialog reads it back via `AssemblyInformationalVersionAttribute`. Bump
+that property to release a new version — no other file needs to change.
+
+---
+
+## Quick build
 
 ```cmd
 git clone https://github.com/Mangetsu/steam-account-switcher.git
-cd SteamSwitcher
+cd steam-account-switcher
 build.bat
 ```
 
-`build.bat` stops any running SteamSwitcher process, publishes a self-contained install to
-`%LOCALAPPDATA%\SteamSwitcher\`, creates or updates the Desktop launcher shortcut, and launches the
-freshly built app when it finishes.
+`build.bat` publishes a self-contained folder to `%LOCALAPPDATA%\EnigmaLauncher\` and prints
+the install path when done.
 
-Expected install layout:
+---
 
-```text
-%LOCALAPPDATA%\SteamSwitcher\
-  SteamSwitcher.exe
+## Manual publish
+
+```cmd
+dotnet publish EnigmaLauncher\EnigmaLauncher.csproj ^
+  -c Release ^
+  -r win-x64 ^
+  --self-contained true ^
+  -o "%TEMP%\enigma-stage\app"
+```
+
+Then run `scripts\Publish-CleanLayout.ps1` to create the final install layout:
+
+```powershell
+.\scripts\Publish-CleanLayout.ps1 `
+  -StageRoot  "$env:TEMP\enigma-stage" `
+  -InstallRoot "$env:LOCALAPPDATA\EnigmaLauncher"
+```
+
+### Install layout
+
+```
+%LOCALAPPDATA%\EnigmaLauncher\
+  EnigmaLauncher.exe          ← host exe (patched to load app\EL.dll)
   app\
+    EL.dll                    ← managed assembly (renamed from EnigmaLauncher.dll)
+    EL.deps.json
+    EL.runtimeconfig.json
+    (WPF native DLLs, …)
   data\
+    cache\                    ← downloaded artwork
+    icons\                    ← generated .ico files for shortcuts
+    settings.json             ← user preferences (display routing, etc.)
 ```
 
-## Clean Layout Publish
+### Why folder mode (not single-file)?
 
-Do not publish directly to the install folder if you want the clean layout. Use `build.bat`.
+Single-file publish with `IncludeNativeLibrariesForSelfExtract=true` makes the exe unpack WPF's
+native DLLs into `%TEMP%` at runtime. That self-extraction pattern is indistinguishable from
+dropper malware to reputation-based AV engines (Norton `Win64:Malware-gen`, etc.), causing the
+file to be quarantined on first run.
 
-The batch file:
+Folder-mode publish produces a standard Windows host exe that loads DLLs from its own directory —
+no extraction, no AV alerts.
 
-1. Stops any running `SteamSwitcher` process so install files are not locked.
-2. Publishes the normal self-contained output to `.build\SteamSwitcher\app\`.
-3. Copies the apphost to the install root as `SteamSwitcher.exe`.
-4. Patches the apphost to load `app\SS.dll` by relative path.
-5. Migrates old root `cache\` and `icons\` folders into `data\cache\` and `data\icons\`.
-6. Replaces the old runtime files while preserving `data\`.
-7. Launches `%LOCALAPPDATA%\SteamSwitcher\SteamSwitcher.exe`.
+---
 
-## Why Folder Mode?
+## Antivirus exclusion
 
-Single-file publish with native extraction can make WPF unpack DLLs into `%TEMP%` at runtime. That
-pattern can be flagged by reputation-based antivirus products. Folder mode keeps files on disk in a
-normal application layout and avoids that self-extraction behavior.
+Because the binary is unsigned (no paid code-signing certificate), reputation-based AV engines
+may alert on the first run. Add the install folder to your AV exclusion list:
 
-## Running In Visual Studio
+- **Norton:** Settings → Antivirus → Scans and Risks → Exclusions → Add Folder
+  → `%LOCALAPPDATA%\EnigmaLauncher`
+- **Windows Defender:** Windows Security → Virus & threat protection → Manage settings
+  → Exclusions → Add an exclusion → Folder → `%LOCALAPPDATA%\EnigmaLauncher`
 
-1. Open `SteamSwitcher.sln`.
-2. Set `SteamSwitcher` as the startup project.
-3. Press F5.
+---
 
-To test shortcut launch mode, set debug arguments to:
+## Running in Visual Studio
 
-```text
---launch <appid>
+1. Open `EnigmaLauncher.sln`
+2. Set **EnigmaLauncher** as the startup project (it already is)
+3. Press **F5** — the app reads your real Steam install from the registry
+
+To test the `--launch` mode, set the project debug arguments to `--launch <appid>` in
+Project Properties → Debug → Application arguments.
+
+---
+
+## Project layout
+
 ```
-
-## Verification
-
-For code, XAML, or build-script changes:
-
-```cmd
-dotnet build SteamSwitcher.sln -c Release
-```
-
-For publish layout changes:
-
-```cmd
-cmd /c path\to\SteamSwitcher\build.bat
-```
-
-Before committing:
-
-```cmd
-git diff --check
-```
-
-## Project Layout
-
-```text
-SteamSwitcher/
-├── SteamSwitcher/
-│   ├── Steam/                   # Steam registry, VDF, library, switching logic
+EnigmaLauncher/
+├── EnigmaLauncher/                  # C# WPF project
+│   ├── Steam/                       # Steam integration layer (internal)
+│   │   ├── SteamConfig.cs           # Registry reader, path resolver
+│   │   ├── SteamAccount.cs          # Steam account model
+│   │   ├── AccountManager.cs        # loginusers.vdf parser, current-account detection
+│   │   ├── GameEntry.cs             # Steam game model
+│   │   ├── LibraryScanner.cs        # libraryfolders.vdf + .acf parser
+│   │   ├── AccountSwitcher.cs       # Core switching logic
+│   │   └── ArtworkResolver.cs       # Local cache + CDN artwork
+│   ├── Stores/                      # Store abstraction layer
+│   │   ├── IGameStore.cs            # Base interface: scan, artwork, launch
+│   │   ├── IAccountStore.cs         # Extension: accounts, switch operations
+│   │   ├── GameInfo.cs              # Store-agnostic game model
+│   │   ├── AccountInfo.cs           # Store-agnostic account model
+│   │   ├── StoreRegistry.cs         # Discovers and holds registered stores
+│   │   └── Steam/
+│   │       └── SteamStore.cs        # Account + client-action adapter for Steam
+│   ├── Settings/
+│   │   └── SettingsStore.cs         # data\settings.json reader/writer
+│   ├── Display/
+│   │   ├── MonitorInfo.cs           # Monitor model (device name, label, primary flag, resolution)
+│   │   └── DisplayManager.cs        # Enumerate monitors, set primary display
+│   ├── Migration/
+│   │   └── MigrationService.cs      # One-time upgrade from SteamSwitcher v1.0.0
 │   ├── UI/
-│   │   ├── Controls/            # GameCard, AccountBadge
-│   │   ├── Styles/              # Theme.xaml
-│   │   ├── AboutWindow.xaml     # About dialog
-│   │   ├── LaunchWindow.xaml    # Progress dialog
-│   │   └── MainWindow.xaml      # Main library window
-│   ├── Shortcuts/               # .lnk creation and ICO generation
-│   ├── Assets/                  # app_icon.ico
-│   ├── AppPaths.cs              # Local app data paths
-│   └── SteamSwitcher.csproj
+│   │   ├── Controls/
+│   │   │   ├── GameCard.xaml        # 200×320 portrait game card
+│   │   │   └── AccountBadge.xaml    # Coloured account pill
+│   │   ├── Styles/
+│   │   │   └── Theme.xaml           # Dark Steam-themed ResourceDictionary
+│   │   ├── MainWindow.xaml          # Main library window
+│   │   ├── LaunchWindow.xaml        # Floating progress dialog
+│   │   └── AboutWindow.xaml         # App info dialog
+│   ├── Shortcuts/
+│   │   └── ShortcutCreator.cs       # .lnk creation via WScript.Shell COM
+│   ├── Assets/
+│   │   └── app_icon.ico
+│   ├── AppPaths.cs                  # Centralised path constants
+│   ├── App.xaml                     # Entry point, --launch vs GUI routing
+│   └── EnigmaLauncher.csproj
 ├── docs/
-│   ├── architecture.md
-│   └── building.md
+│   ├── architecture.md              # Technical deep-dive
+│   └── building.md                  # This file
 ├── scripts/
-│   └── Publish-CleanLayout.ps1
-├── AGENTS.md                    # Redirects agents to CLAUDE.md
-├── CLAUDE.md                    # Agent source of truth
-├── CHANGELOG.md
-├── README.md
+│   └── Publish-CleanLayout.ps1      # Post-publish install layout script
+├── .editorconfig
+├── .gitignore
 ├── build.bat
-└── SteamSwitcher.sln
+├── CHANGELOG.md
+├── LICENSE
+├── README.md
+└── EnigmaLauncher.sln
 ```
+
+---
 
 ## Dependencies
 
 | Package | Version | Used for |
 |---|---|---|
-| ValveKeyValue | 0.10.x | VDF file parsing |
-| System.Drawing.Common | 8.0.x | ICO generation for shortcuts |
+| [ValveKeyValue](https://github.com/nicklvsa/ValveKeyValue) | 0.10.x | VDF file parsing |
+| [System.Drawing.Common](https://www.nuget.org/packages/System.Drawing.Common) | 8.0.x | ICO generation for shortcuts |
 
-All other functionality uses built-in .NET 8 and Windows APIs, including WPF,
-`Microsoft.Win32.Registry`, `Microsoft.Win32.OpenFolderDialog`, `System.Net.Http`, and
-`System.Diagnostics.Process`.
+All other functionality uses built-in .NET 8 APIs (WPF, `Microsoft.Win32.Registry`,
+`System.Net.Http`, `System.Diagnostics.Process`). Monitor enumeration and primary-display
+switching use raw Win32 P/Invoke (`DisplayManager`) — no `System.Windows.Forms` dependency.

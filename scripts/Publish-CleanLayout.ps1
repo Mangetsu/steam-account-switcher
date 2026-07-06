@@ -27,8 +27,11 @@ function Move-DirectoryContents([string]$Source, [string]$Destination) {
 }
 
 function Patch-AppHost([string]$ExePath) {
-    $oldName = 'SteamSwitcher.dll'
-    $newName = 'app\SS.dll'
+    # The apphost exe has the managed DLL path baked in as a UTF-8 string.
+    # We shorten it to 'app\EL.dll' so the runtime knows where to find the
+    # managed assembly after we move it out of the publish root.
+    $oldName = 'EnigmaLauncher.dll'
+    $newName = 'app\EL.dll'
 
     $oldBytes = [Text.Encoding]::UTF8.GetBytes($oldName)
     $newBytes = [Text.Encoding]::UTF8.GetBytes($newName)
@@ -65,37 +68,42 @@ function Patch-AppHost([string]$ExePath) {
     throw "Could not find '$oldName' in apphost '$ExePath'."
 }
 
-$stageRoot = Resolve-FullPath $StageRoot
+$stageRoot   = Resolve-FullPath $StageRoot
 $installRoot = Resolve-FullPath $InstallRoot
-$appDir = Join-Path $stageRoot 'app'
-$dataDir = Join-Path $installRoot 'data'
+$appDir      = Join-Path $stageRoot 'app'
+$dataDir     = Join-Path $installRoot 'data'
 
 if (-not (Test-Path -LiteralPath $appDir)) {
     throw "Missing publish app directory: $appDir"
 }
 
-$rootExe = Join-Path $stageRoot 'SteamSwitcher.exe'
-$appExe = Join-Path $appDir 'SteamSwitcher.exe'
+# Promote the host exe to the layout root and patch it to find app\EL.dll
+$rootExe = Join-Path $stageRoot 'EnigmaLauncher.exe'
+$appExe  = Join-Path $appDir    'EnigmaLauncher.exe'
 Copy-Item -LiteralPath $appExe -Destination $rootExe -Force
 Remove-Item -LiteralPath $appExe -Force
 
-Rename-Item -LiteralPath (Join-Path $appDir 'SteamSwitcher.dll') -NewName 'SS.dll'
-Rename-Item -LiteralPath (Join-Path $appDir 'SteamSwitcher.deps.json') -NewName 'SS.deps.json'
-Rename-Item -LiteralPath (Join-Path $appDir 'SteamSwitcher.runtimeconfig.json') -NewName 'SS.runtimeconfig.json'
-if (Test-Path -LiteralPath (Join-Path $appDir 'SteamSwitcher.pdb')) {
-    Rename-Item -LiteralPath (Join-Path $appDir 'SteamSwitcher.pdb') -NewName 'SS.pdb'
+# Rename managed assembly and config files to their short aliases
+Rename-Item -LiteralPath (Join-Path $appDir 'EnigmaLauncher.dll')              -NewName 'EL.dll'
+Rename-Item -LiteralPath (Join-Path $appDir 'EnigmaLauncher.deps.json')        -NewName 'EL.deps.json'
+Rename-Item -LiteralPath (Join-Path $appDir 'EnigmaLauncher.runtimeconfig.json') -NewName 'EL.runtimeconfig.json'
+if (Test-Path -LiteralPath (Join-Path $appDir 'EnigmaLauncher.pdb')) {
+    Rename-Item -LiteralPath (Join-Path $appDir 'EnigmaLauncher.pdb') -NewName 'EL.pdb'
 }
 
 Patch-AppHost $rootExe
 
 New-Item -ItemType Directory -Force -Path $installRoot | Out-Null
-New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
+New-Item -ItemType Directory -Force -Path $dataDir     | Out-Null
 
-Move-DirectoryContents (Join-Path $installRoot 'cache') (Join-Path $dataDir 'cache')
-Move-DirectoryContents (Join-Path $installRoot 'icons') (Join-Path $dataDir 'icons')
+# Preserve any existing data that might have been written at the old flat layout
+# (pre-data/ era) or by a previous build.
+Move-DirectoryContents (Join-Path $installRoot 'cache')  (Join-Path $dataDir 'cache')
+Move-DirectoryContents (Join-Path $installRoot 'icons')  (Join-Path $dataDir 'icons')
 
-Get-ChildItem -LiteralPath $installRoot -Force | Where-Object Name -ne 'data' | ForEach-Object {
-    Remove-Item -LiteralPath $_.FullName -Recurse -Force
-}
+# Wipe everything except data/, then copy the fresh stage in
+Get-ChildItem -LiteralPath $installRoot -Force |
+    Where-Object Name -ne 'data' |
+    ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force }
 
 Copy-Item -Path (Join-Path $stageRoot '*') -Destination $installRoot -Recurse -Force

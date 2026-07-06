@@ -1,4 +1,4 @@
-# SteamSwitcher Agent Guidelines
+# EnigmaLauncher Agent Guidelines
 
 This file is the source of truth for AI agents working in this repository. Claude, Codex,
 GitHub Copilot, and any other coding agent must read and follow this file before making changes.
@@ -7,15 +7,20 @@ back here.
 
 ## Project Overview
 
-SteamSwitcher is a Windows WPF app targeting .NET 8. It scans local Steam libraries, maps games to
-Steam accounts, silently switches Steam accounts when possible, and launches games through desktop
-or user-chosen `.lnk` shortcuts.
+EnigmaLauncher is a Windows WPF app targeting .NET 8. It scans local Steam libraries, maps games
+to Steam accounts, silently switches Steam accounts when possible, launches games through desktop
+or user-chosen `.lnk` shortcuts, and routes games to the correct monitor on multi-display setups.
 
 Key project areas:
 
-- `SteamSwitcher/Steam/`: Steam registry, VDF, library scanning, account switching, artwork logic.
-- `SteamSwitcher/UI/`: WPF windows, cards, account switcher, About dialog, and theme resources.
-- `SteamSwitcher/Shortcuts/`: Windows `.lnk` creation and ICO generation.
+- `EnigmaLauncher/Steam/`: Steam registry, VDF, library scanning, account switching, artwork logic (internal).
+- `EnigmaLauncher/Stores/`: Store abstraction (`IGameStore`, `IAccountStore`, `GameInfo`, `AccountInfo`, `StoreRegistry`).
+- `EnigmaLauncher/Stores/Steam/SteamStore.cs`: `IAccountStore` / `IStoreClientActions` adapter for Steam.
+- `EnigmaLauncher/Settings/`: `SettingsStore` — reads/writes `data\settings.json`.
+- `EnigmaLauncher/Display/`: `DisplayManager` and `MonitorInfo` — multi-monitor support.
+- `EnigmaLauncher/Migration/`: `MigrationService` — one-time upgrade from SteamSwitcher v1.0.0.
+- `EnigmaLauncher/UI/`: WPF windows, cards, account switcher, About dialog, and theme resources.
+- `EnigmaLauncher/Shortcuts/`: Windows `.lnk` creation and ICO generation.
 - `scripts/Publish-CleanLayout.ps1`: post-publish layout script used by `build.bat`.
 - `docs/`: human-readable architecture and build notes.
 
@@ -24,12 +29,12 @@ Key project areas:
 - Keep the app universal. Do not hardcode user-specific paths such as `C:\Users\...`.
 - Use `%LOCALAPPDATA%` in scripts/docs and `Environment.SpecialFolder.LocalApplicationData` in code.
 - Preserve the clean install layout:
-  - root: `SteamSwitcher.exe`
+  - root: `EnigmaLauncher.exe`
   - runtime files: `app\`
-  - runtime data: `data\cache\` and `data\icons\`
+  - runtime data: `data\cache\`, `data\icons\`, `data\settings.json`
 - Keep publishing in folder mode. Do not switch back to single-file publish; it can trigger AV
   false positives because WPF native files self-extract at runtime.
-- Game shortcuts must target the root `SteamSwitcher.exe` with `--launch <appid>`.
+- Game shortcuts must target the root `EnigmaLauncher.exe` with `--launch <appid>`.
 - Account-specific game shortcuts must include `--owner <steamid64>` when the selected card has an owner.
 - Multi-owner game shortcut filenames should use the account display name as the suffix, not the SteamID64,
   while keeping `--owner <steamid64>` in the shortcut arguments.
@@ -40,13 +45,17 @@ Key project areas:
   Do not use cloud-only app stubs as ownership signals.
 - Shortcut icons should continue to be stored under `data\icons\`.
 - Downloaded artwork should continue to be stored under `data\cache\`.
+- Do not move Steam switching logic into UI classes; keep `SteamStore` as the bridge between the UI
+  and Steam behavior.
+- The UI must bind to `IAccountStore` / `GameInfo` / `AccountInfo` only — no Steam-specific types
+  in the presentation layer.
 
 ## Build And Verification
 
 Use this before committing changes that affect code, XAML, build scripts, or build docs:
 
 ```cmd
-dotnet build SteamSwitcher.sln -c Release
+dotnet build EnigmaLauncher.sln -c Release
 ```
 
 For publish/install layout changes, also run:
@@ -55,20 +64,20 @@ For publish/install layout changes, also run:
 build.bat
 ```
 
-`build.bat` is expected to stop any running SteamSwitcher process before replacing install files and
-launch the freshly built app after a successful build.
+`build.bat` is expected to stop any running EnigmaLauncher process before replacing install files
+and launch the freshly built app after a successful build.
 
 When validating `build.bat`, prefer running it from outside the repo at least once:
 
 ```cmd
-cmd /c path\to\SteamSwitcher\build.bat
+cmd /c path\to\EnigmaLauncher\build.bat
 ```
 
 Expected installed layout:
 
 ```text
-%LOCALAPPDATA%\SteamSwitcher\
-  SteamSwitcher.exe
+%LOCALAPPDATA%\EnigmaLauncher\
+  EnigmaLauncher.exe
   app\
   data\
 ```
@@ -102,8 +111,6 @@ runtime source of truth. Bring README/docs/changelog back into agreement before 
 - Keep card/button labels short enough to fit in the fixed 200 x 320 game card.
 - Avoid adding package dependencies unless the standard library or WPF does not provide a practical
   option.
-- Do not move Steam switching logic into UI classes; keep `SteamOperations` as the bridge between UI
-  and Steam behavior.
 
 ## Current UI Expectations
 
@@ -111,16 +118,21 @@ Main window header:
 
 - `About` button sits next to `Refresh`.
 - Account badge opens the account switcher popup.
+- `Steam` button beside the account badge starts or opens Steam without launching a game.
+- Display badge (🖥) opens the display switcher popup (set Windows primary monitor).
 
 Game card hover actions:
 
-- `Play`: launches the game, switching account if needed.
+- `Play`: launches the game, switching account if needed, routing to preferred display.
+- `Open in Steam Library`: switches to the selected owner account if needed, then opens the game's
+  Steam Library details page without launching it.
 - `Create Desktop Shortcut`: creates a `.lnk` on the Desktop.
 - `Create a shortcut`: prompts for a destination folder before creating the `.lnk`.
+- `Display` (🖥): opens the per-game display settings popup (target monitor + switch method).
 
 About dialog:
 
-- Shows app version, .NET runtime, install path, MIT license, and GitHub link.
+- Shows app version, .NET runtime, install path, license, and GitHub link.
 
 ## Git Guidelines
 
