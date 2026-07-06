@@ -9,7 +9,7 @@
 [![License](https://img.shields.io/badge/license-PolyForm%20NC-22c55e)](LICENSE)
 [![Steam](https://img.shields.io/badge/Steam-compatible-1b2838?logo=steam&logoColor=white)](https://store.steampowered.com)
 
-**Mirrors:** [GitHub](https://github.com/Mangetsu/steam-account-switcher) · [Gitea](https://git.enigmalabs.cc/fanopsis/steam-account-switcher)
+![EnigmaLauncher preview](docs/preview.png)
 
 </div>
 

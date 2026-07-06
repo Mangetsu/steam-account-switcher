@@ -32,6 +32,16 @@ public static class DisplayManager
         uint dwflags,
         IntPtr lParam);
 
+    // Overload used only to commit pending CDS_NORESET changes: Windows requires a true
+    // NULL devmode pointer for that call, which `ref DEVMODE` above cannot express.
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "ChangeDisplaySettingsExW")]
+    private static extern int ChangeDisplaySettingsEx(
+        string? lpszDeviceName,
+        IntPtr lpDevMode,
+        IntPtr hwnd,
+        uint dwflags,
+        IntPtr lParam);
+
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
 
@@ -103,7 +113,18 @@ public static class DisplayManager
     private const uint CDS_NORESET        = 0x10000000;
 
     // DEVMODE field flags
-    private const uint DM_POSITION = 0x00000020;
+    private const uint DM_POSITION          = 0x00000020;
+    private const uint DM_BITSPERPEL        = 0x00040000;
+    private const uint DM_PELSWIDTH         = 0x00080000;
+    private const uint DM_PELSHEIGHT        = 0x00100000;
+    private const uint DM_DISPLAYFREQUENCY  = 0x00400000;
+
+    // Some drivers reject a DEVMODE that only declares DM_POSITION and reject the call outright
+    // (DISP_CHANGE_FAILED) — they expect a fully-described mode even when only the position is
+    // actually changing. The extra fields' values are already correct since they came straight
+    // from EnumDisplaySettings; only the flag is being added here, not the values.
+    private const uint DM_POSITION_FIELDS =
+        DM_POSITION | DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
 
     // SetWindowPos flags
     private const uint SWP_NOSIZE   = 0x0001;
@@ -201,7 +222,8 @@ public static class DisplayManager
             break;
         }
 
-        // Update each active monitor's position
+        // Compute each active monitor's new (shifted) position.
+        var pending = new List<(string DeviceName, DEVMODE Devmode)>();
         for (uint i = 0; EnumDisplayDevices(null, i, ref device, 0); i++)
         {
             if ((device.StateFlags & DISPLAY_DEVICE_ACTIVE) == 0) continue;
@@ -212,20 +234,29 @@ public static class DisplayManager
 
             dm.dmPositionX -= offsetX;
             dm.dmPositionY -= offsetY;
-            dm.dmFields     = DM_POSITION;
+            dm.dmFields     = DM_POSITION_FIELDS;
 
+            pending.Add((device.DeviceName, dm));
+        }
+
+        // Apply the target device first so it lands at (0,0) before any other device is moved
+        // off-origin. Doing this in enumeration order instead can make the driver reject moving
+        // the current primary away from (0,0) while nothing else occupies it yet.
+        foreach (var (deviceName, devmode) in pending.OrderByDescending(p =>
+            string.Equals(p.DeviceName, targetDevice, StringComparison.OrdinalIgnoreCase)))
+        {
+            var dm = devmode;
             var ret = ChangeDisplaySettingsEx(
-                device.DeviceName, ref dm, IntPtr.Zero,
+                deviceName, ref dm, IntPtr.Zero,
                 CDS_UPDATEREGISTRY | CDS_NORESET, IntPtr.Zero);
 
             if (ret != DISP_CHANGE_SUCCESSFUL)
                 throw new InvalidOperationException(
-                    $"ChangeDisplaySettingsEx failed for '{device.DeviceName}' (return {ret}).");
+                    $"ChangeDisplaySettingsEx failed for '{deviceName}' (return {ret}).");
         }
 
-        // Commit all pending changes
-        var empty = new DEVMODE { dmSize = (ushort)Marshal.SizeOf<DEVMODE>() };
-        ChangeDisplaySettingsEx(null, ref empty, IntPtr.Zero, 0, IntPtr.Zero);
+        // Commit all pending changes (true NULL devmode required — see overload above)
+        ChangeDisplaySettingsEx(null, IntPtr.Zero, IntPtr.Zero, 0, IntPtr.Zero);
     }
 
     /// <summary>

@@ -13,6 +13,15 @@ but is not required for building.
 
 ---
 
+## App version
+
+The app version is set in one place: the `<Version>` property in
+`EnigmaLauncher/EnigmaLauncher.csproj`. The SDK derives `AssemblyVersion`/`FileVersion` from it at
+build time, and the About dialog reads it back via `AssemblyInformationalVersionAttribute`. Bump
+that property to release a new version — no other file needs to change.
+
+---
+
 ## Quick build
 
 ```cmd

@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="About EnigmaLauncher"
         Icon="/Assets/app_icon.ico"
-        Width="440" Height="330"
-        MinWidth="420" MinHeight="320"
-        ResizeMode="NoResize"
+        Width="460" Height="400"
+        MinWidth="420" MinHeight="390"
+        ResizeMode="CanResize"
         Background="#FF171A21"
         WindowStartupLocation="CenterOwner">
     <Border Background="#FF171A21" Padding="24">

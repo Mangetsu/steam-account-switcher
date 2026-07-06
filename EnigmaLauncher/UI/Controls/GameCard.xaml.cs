@@ -43,6 +43,7 @@ public partial class GameCard : UserControl
         Owner = owner;
 
         GameNameText.Text = game.Name;
+        HoverNameText.Text = game.Name;
         Badge.Account     = owner;
         Badge.Refresh();
 
@@ -95,6 +96,12 @@ public partial class GameCard : UserControl
 
     private void OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
+        // Popup content (display-settings popup) is only connected to the card through the
+        // logical tree, not the visual tree, but routed events still bubble through it into
+        // this handler — so rapid clicks on the stepper/combo boxes inside the popup were
+        // being misread as a double-click on the card and launching the game underneath it.
+        if (DisplaySettingsPopup.IsOpen) return;
+
         if (Game is not null)
             PlayRequested?.Invoke(this, Game);
     }
@@ -143,9 +150,63 @@ public partial class GameCard : UserControl
         MethodComboBox.Items.Add(new ComboBoxItem { Content = "None (default behavior)",   Tag = DisplaySwitchMethod.None });
         MethodComboBox.Items.Add(new ComboBoxItem { Content = "Set as primary display",    Tag = DisplaySwitchMethod.SetPrimary });
         MethodComboBox.Items.Add(new ComboBoxItem { Content = "Move game window",          Tag = DisplaySwitchMethod.MoveWindow });
+        MethodComboBox.Items.Add(new ComboBoxItem { Content = "Set primary, then revert (keeps taskbar)", Tag = DisplaySwitchMethod.SetPrimaryThenRevert });
 
         var savedMethod = DisplaySettings?.Method ?? DisplaySwitchMethod.None;
         MethodComboBox.SelectedIndex = (int)savedMethod;
+
+        // ── Revert delay stepper ──────────────────────────────────────────────
+        RevertDelayTextBox.Text = (DisplaySettings?.RevertDelaySeconds ?? 8).ToString();
+        UpdateRevertDelayVisibility();
+    }
+
+    private const int MinRevertDelaySeconds = 1;
+    private const int MaxRevertDelaySeconds = 60;
+
+    private void MethodComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => UpdateRevertDelayVisibility();
+
+    private void UpdateRevertDelayVisibility()
+    {
+        var method = (MethodComboBox.SelectedItem as ComboBoxItem)?.Tag is DisplaySwitchMethod m
+            ? m : DisplaySwitchMethod.None;
+        RevertDelayPanel.Visibility = method == DisplaySwitchMethod.SetPrimaryThenRevert
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void RevertDelayTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        => e.Handled = !e.Text.All(char.IsDigit);
+
+    private void RevertDelayMinusButton_Click(object sender, RoutedEventArgs e)
+        => StepRevertDelay(-1);
+
+    private void RevertDelayPlusButton_Click(object sender, RoutedEventArgs e)
+        => StepRevertDelay(1);
+
+    private void StepRevertDelay(int delta)
+    {
+        var current = ReadRevertDelaySeconds();
+        RevertDelayTextBox.Text = Math.Clamp(current + delta, MinRevertDelaySeconds, MaxRevertDelaySeconds).ToString();
+    }
+
+    private int ReadRevertDelaySeconds() =>
+        Math.Clamp(
+            int.TryParse(RevertDelayTextBox.Text, out var value) ? value : 8,
+            MinRevertDelaySeconds, MaxRevertDelaySeconds);
+
+    private void MonitorComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        // MethodComboBox is populated after MonitorComboBox during PopulateDisplaySettingsPopup,
+        // so ignore selection changes that fire before it has items (initial population).
+        if (MethodComboBox.Items.Count == 0) return;
+
+        var pickedRealMonitor = (MonitorComboBox.SelectedItem as ComboBoxItem)?.Tag is string;
+        var methodStillNone   = (MethodComboBox.SelectedItem as ComboBoxItem)?.Tag is DisplaySwitchMethod.None;
+
+        // Picking a monitor with the method left at "None" would silently do nothing
+        // (None means "no override"), so nudge the method to a sane default.
+        if (pickedRealMonitor && methodStillNone)
+            MethodComboBox.SelectedIndex = (int)DisplaySwitchMethod.SetPrimary;
     }
 
     private void SaveDisplayButton_Click(object sender, RoutedEventArgs e)
@@ -154,7 +215,12 @@ public partial class GameCard : UserControl
         var method        = (MethodComboBox.SelectedItem as ComboBoxItem)?.Tag is DisplaySwitchMethod m
                             ? m : DisplaySwitchMethod.None;
 
-        DisplaySettings = new GameDisplaySettings { TargetDevice = targetDevice, Method = method };
+        DisplaySettings = new GameDisplaySettings
+        {
+            TargetDevice      = targetDevice,
+            Method            = method,
+            RevertDelaySeconds = ReadRevertDelaySeconds(),
+        };
 
         if (Game is not null)
             DisplaySettingsChanged?.Invoke(this, (Game, DisplaySettings));

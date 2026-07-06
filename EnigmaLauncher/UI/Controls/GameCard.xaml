@@ -86,6 +86,10 @@
                     </Grid.Style>
 
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock x:Name="HoverNameText"
+                                   Foreground="White" FontSize="14" FontWeight="Bold"
+                                   TextWrapping="Wrap" TextAlignment="Center"
+                                   MaxWidth="180" Margin="0,0,0,12"/>
                         <Button Content="&#x25B6;   Play"
                                 Style="{StaticResource GameActionButton}"
                                 Background="#FF1A9FFF"
@@ -125,11 +129,12 @@
                 <TextBlock x:Name="GameNameText" Grid.Column="0"
                            Foreground="#C6D4DF" FontSize="11.5" FontWeight="SemiBold"
                            TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
-                           VerticalAlignment="Center" Margin="0,0,4,0"/>
+                           VerticalAlignment="Center" Margin="0,0,4,0"
+                           ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
 
                 <!-- Display-settings icon button — faint until hover, never hidden -->
                 <Button x:Name="DisplaySettingsButton" Grid.Column="1"
-                        Width="22" Height="22" Margin="0,0,4,0"
+                        Width="28" Height="28" Margin="0,0,4,0"
                         ToolTip="Display settings for this game"
                         Click="DisplaySettingsButton_Click">
                     <Button.Style>
@@ -137,18 +142,18 @@
                             <Setter Property="Background" Value="Transparent"/>
                             <Setter Property="BorderThickness" Value="0"/>
                             <Setter Property="Cursor" Value="Hand"/>
-                            <Setter Property="Opacity" Value="0.25"/>
+                            <Setter Property="Opacity" Value="0.55"/>
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                                CornerRadius="3">
+                                                CornerRadius="4">
                                             <ContentPresenter HorizontalAlignment="Center"
                                                               VerticalAlignment="Center"/>
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="#33FFFFFF"/>
+                                                <Setter TargetName="Bd" Property="Background" Value="#FF2A475E"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -163,7 +168,7 @@
                             </Style.Triggers>
                         </Style>
                     </Button.Style>
-                    <TextBlock Text="&#x1F5B5;" FontSize="11" Foreground="#FF8BA6B5"
+                    <TextBlock Text="&#x1F5A5;" FontSize="16" Foreground="#FF66C0F4"
                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
                 </Button>
 
@@ -186,15 +191,28 @@
 
                         <TextBlock Text="Target screen:" Foreground="#FF8BA6B5"
                                    FontSize="11" Margin="0,0,0,3"/>
-                        <ComboBox x:Name="MonitorComboBox" FontSize="11"
-                                  Background="#FF2A475E" Foreground="#FFC6D4DF"
-                                  BorderBrush="#FF3D607C" Margin="0,0,0,10"/>
+                        <ComboBox x:Name="MonitorComboBox" FontSize="11" Margin="0,0,0,10"
+                                  SelectionChanged="MonitorComboBox_SelectionChanged"/>
 
                         <TextBlock Text="Switch method:" Foreground="#FF8BA6B5"
                                    FontSize="11" Margin="0,0,0,3"/>
-                        <ComboBox x:Name="MethodComboBox" FontSize="11"
-                                  Background="#FF2A475E" Foreground="#FFC6D4DF"
-                                  BorderBrush="#FF3D607C" Margin="0,0,0,12"/>
+                        <ComboBox x:Name="MethodComboBox" FontSize="11" Margin="0,0,0,12"
+                                  SelectionChanged="MethodComboBox_SelectionChanged"/>
+
+                        <StackPanel x:Name="RevertDelayPanel" Orientation="Horizontal"
+                                    Margin="0,0,0,12" Visibility="Collapsed">
+                            <TextBlock Text="Revert after (s):" Foreground="#FF8BA6B5" FontSize="11"
+                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <Button x:Name="RevertDelayMinusButton" Content="-" Width="22" Height="22"
+                                    FontSize="12" Padding="0" Background="#FF2A475E" Foreground="White"
+                                    BorderThickness="0" Cursor="Hand" Click="RevertDelayMinusButton_Click"/>
+                            <TextBox x:Name="RevertDelayTextBox" Width="34" FontSize="11"
+                                     TextAlignment="Center" Margin="4,0" VerticalContentAlignment="Center"
+                                     PreviewTextInput="RevertDelayTextBox_PreviewTextInput"/>
+                            <Button x:Name="RevertDelayPlusButton" Content="+" Width="22" Height="22"
+                                    FontSize="12" Padding="0" Background="#FF2A475E" Foreground="White"
+                                    BorderThickness="0" Cursor="Hand" Click="RevertDelayPlusButton_Click"/>
+                        </StackPanel>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button x:Name="ClearDisplayButton"

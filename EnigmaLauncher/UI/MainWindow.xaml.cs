@@ -312,6 +312,7 @@ public partial class MainWindow : Window
             bmp.BeginInit();
             bmp.UriSource        = new Uri(imagePath, UriKind.Absolute);
             bmp.CacheOption      = BitmapCacheOption.OnLoad;
+            bmp.CreateOptions    = BitmapCreateOptions.IgnoreImageCache;
             bmp.DecodePixelWidth = 200;
             bmp.EndInit();
             bmp.Freeze();
@@ -357,13 +358,29 @@ public partial class MainWindow : Window
 
         return async progress =>
         {
-            if (settings.Method == DisplaySwitchMethod.SetPrimary)
+            string? previousPrimary = null;
+
+            if (settings.Method is DisplaySwitchMethod.SetPrimary or DisplaySwitchMethod.SetPrimaryThenRevert)
             {
+                if (settings.Method == DisplaySwitchMethod.SetPrimaryThenRevert)
+                    previousPrimary = DisplayManager.GetMonitors().FirstOrDefault(m => m.IsPrimary)?.DeviceName;
+
                 progress?.Report("Switching primary display...");
-                DisplayManager.SetPrimary(settings.TargetDevice);
+                await SetPrimaryWithTimeoutAsync(settings.TargetDevice!);
             }
 
             await op(progress);
+
+            if (settings.Method == DisplaySwitchMethod.SetPrimaryThenRevert && previousPrimary is not null)
+            {
+                // Fire-and-forget: give the game a few seconds to create its exclusive-fullscreen
+                // swapchain on the target monitor before handing primary back — reverting too early
+                // risks the game ending up fullscreen on the wrong (still-primary) monitor instead.
+                // Fire-and-forget, but deliberately NOT Task.Run: SetPrimary must stay on the
+                // calling (UI) thread's continuation — see SetPrimaryWithTimeoutAsync.
+                var revertDelay = TimeSpan.FromSeconds(settings.RevertDelaySeconds);
+                _ = RevertPrimaryAfterDelayAsync(revertDelay, previousPrimary);
+            }
 
             if (settings.Method == DisplaySwitchMethod.MoveWindow)
             {
@@ -377,6 +394,26 @@ public partial class MainWindow : Window
                 });
             }
         };
+    }
+
+    /// <summary>
+    /// Runs <see cref="DisplayManager.SetPrimary"/>. Must stay on the calling (UI) thread —
+    /// ChangeDisplaySettingsEx reliably fails with DISP_CHANGE_FAILED when invoked from a
+    /// thread-pool thread via Task.Run, even though the call itself is fast. The DEVMODE fix
+    /// in DisplayManager (declaring the full mode, not just DM_POSITION) is what actually
+    /// prevents driver-side hangs — a background-thread + timeout wrapper is not needed.
+    /// </summary>
+    private static Task SetPrimaryWithTimeoutAsync(string targetDevice)
+    {
+        DisplayManager.SetPrimary(targetDevice);
+        return Task.CompletedTask;
+    }
+
+    private static async Task RevertPrimaryAfterDelayAsync(TimeSpan delay, string previousPrimary)
+    {
+        await Task.Delay(delay);
+        try { await SetPrimaryWithTimeoutAsync(previousPrimary); }
+        catch { /* best-effort — leave it to the user to switch back manually */ }
     }
 
     private void OnShortcutRequested(object? sender, GameInfo game)
@@ -519,7 +556,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnDisplaySwitchItemClick(object sender, RoutedEventArgs e)
+    private async void OnDisplaySwitchItemClick(object sender, RoutedEventArgs e)
     {
         DisplaySwitcherPopup.IsOpen = false;
 
@@ -527,7 +564,7 @@ public partial class MainWindow : Window
 
         try
         {
-            DisplayManager.SetPrimary(target.DeviceName);
+            await SetPrimaryWithTimeoutAsync(target.DeviceName);
             UpdateDisplayButtonLabel();
         }
         catch (Exception ex)
@@ -580,7 +617,30 @@ public partial class MainWindow : Window
     {
         foreach (var store in _registry.AccountStores)
             store.InvalidateAccountCache();
+        ClearArtworkCache();
         _activeFilter = "all";
         await LoadData();
+    }
+
+    /// <summary>
+    /// Deletes downloaded cover art so Refresh re-fetches it clean from Steam/the CDN.
+    /// Only touches <see cref="AppPaths.CacheDirectory"/> — settings.json (per-game display
+    /// settings, migration flag) and data\icons live elsewhere and are left untouched.
+    /// </summary>
+    private static void ClearArtworkCache()
+    {
+        try
+        {
+            if (!Directory.Exists(AppPaths.CacheDirectory)) return;
+            foreach (var dir in Directory.EnumerateDirectories(AppPaths.CacheDirectory))
+            {
+                try { Directory.Delete(dir, recursive: true); } catch { }
+            }
+            foreach (var file in Directory.EnumerateFiles(AppPaths.CacheDirectory))
+            {
+                try { File.Delete(file); } catch { }
+            }
+        }
+        catch { }
     }
 }
