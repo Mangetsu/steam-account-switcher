@@ -23,12 +23,8 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" Text="EnigmaLauncher"
-                           Foreground="#FF66C0F4" FontSize="16" FontWeight="Bold"
-                           VerticalAlignment="Center"/>
-
-                <StackPanel Grid.Column="1" Orientation="Horizontal"
-                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                            HorizontalAlignment="Left" VerticalAlignment="Center">
                     <TextBlock Text="Logged in as:" Foreground="#FF8BA6B5"
                                FontSize="13" VerticalAlignment="Center" Margin="0,0,8,0"/>
 
@@ -94,6 +90,27 @@
                             <StackPanel x:Name="DisplaySwitcherPanel" MinWidth="220"/>
                         </Border>
                     </Popup>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Grid Width="240" Height="32">
+                        <Border Background="#FF171A21" BorderBrush="#FF3D607C"
+                                BorderThickness="1" CornerRadius="16"/>
+                        <TextBlock Text="&#x1F50D;" Foreground="#FF66C0F4"
+                                   FontSize="13" VerticalAlignment="Center" Margin="11,0,0,0"
+                                   IsHitTestVisible="False"/>
+                        <TextBox x:Name="SearchTextBox" Margin="30,1,8,1"
+                                 VerticalContentAlignment="Center" Padding="0"
+                                 FontSize="12" Foreground="#FFC6D4DF"
+                                 Background="Transparent" BorderThickness="0"
+                                 ToolTip="Search games" KeyDown="SearchTextBox_KeyDown"
+                                 TextChanged="SearchTextBox_TextChanged"/>
+                        <TextBlock x:Name="SearchPlaceholder" Text="Search games..."
+                                   Foreground="#FF6B7280" FontSize="12"
+                                   VerticalAlignment="Center" Margin="30,0,8,0"
+                                   IsHitTestVisible="False"/>
+                    </Grid>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">

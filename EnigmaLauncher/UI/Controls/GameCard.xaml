@@ -168,8 +168,17 @@
                             </Style.Triggers>
                         </Style>
                     </Button.Style>
-                    <TextBlock Text="&#x1F5A5;" FontSize="16" Foreground="#FF66C0F4"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Grid Width="24" Height="24">
+                        <TextBlock Text="&#x1F5A5;" FontSize="16" Foreground="#FF66C0F4"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Border Background="#FF2A475E" CornerRadius="6"
+                                HorizontalAlignment="Right" VerticalAlignment="Top"
+                                MinWidth="11" Height="13" Padding="2,0">
+                            <TextBlock x:Name="DisplayNumberText" Text="1"
+                                       Foreground="White" FontSize="9" FontWeight="Bold"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
                 </Button>
 
                 <controls:AccountBadge x:Name="Badge" Grid.Column="2"

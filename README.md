@@ -30,6 +30,7 @@ launches the game. No dialog boxes, no password prompts, no manual steps.
 - 🔄 **Silent account switching** — kills Steam, patches the right config files, restarts it, and signs in automatically
 - 🖼️ **Game artwork** — pulls capsule art from Steam's local cache; downloads from CDN if missing
 - 🏷️ **Account filter** — click an account pill to see only their games
+- 🔎 **Game search** — search the loaded library from the header
 - 🔗 **Desktop shortcuts** — generate per-game `.lnk` files with the game's own icon
 - 👤 **Header account switcher** — switch accounts directly from the main window without launching a game
 - ▶ **Start Steam** — open the Steam client directly from the header without launching a game

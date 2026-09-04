@@ -14,7 +14,16 @@ public partial class GameCard : UserControl
     public AccountInfo? Owner { get; private set; }
 
     /// <summary>Per-game display routing preference. Set by the parent window after Initialize().</summary>
-    public GameDisplaySettings? DisplaySettings { get; set; }
+    private GameDisplaySettings? _displaySettings;
+    public GameDisplaySettings? DisplaySettings
+    {
+        get => _displaySettings;
+        set
+        {
+            _displaySettings = value;
+            UpdateDisplayNumber();
+        }
+    }
 
     /// <summary>Raised when the user clicks Play or double-clicks the card.</summary>
     public event EventHandler<GameInfo>? PlayRequested;
@@ -65,6 +74,24 @@ public partial class GameCard : UserControl
         ArtworkImage.Source     = image;
         ArtworkImage.Visibility = Visibility.Visible;
         Placeholder.Visibility  = Visibility.Collapsed;
+    }
+
+    private void UpdateDisplayNumber()
+    {
+        try
+        {
+            var monitors = DisplayManager.GetMonitors();
+            var target = DisplaySettings?.TargetDevice is string device
+                ? monitors.FirstOrDefault(m => string.Equals(m.DeviceName, device, StringComparison.OrdinalIgnoreCase))
+                : monitors.FirstOrDefault(m => m.IsPrimary);
+            DisplayNumberText.Text = target is null
+                ? "—"
+                : target.DisplayLabel.Split('—')[0].Replace("Display", "", StringComparison.OrdinalIgnoreCase).Trim();
+        }
+        catch
+        {
+            DisplayNumberText.Text = "—";
+        }
     }
 
     private void PlayButton_Click(object sender, RoutedEventArgs e)
