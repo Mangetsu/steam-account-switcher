@@ -7,7 +7,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [2.1.0] — 2026-09-04
+
+- Refined the main header layout, added game search, and added per-game monitor numbers to the
+  display settings icon.
 
 ## [2.0.0] — 2026-07-06
 

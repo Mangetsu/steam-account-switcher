@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Input;
 using Microsoft.Win32;
 using EnigmaLauncher.Display;
 using EnigmaLauncher.Settings;
@@ -23,6 +24,7 @@ public partial class MainWindow : Window
     private readonly List<(GameCard Card, GameInfo Game, AccountInfo? Owner)> _allCards = [];
     private List<AccountInfo> _loadedAccounts = [];
     private string _activeFilter = "all";
+    private string _searchQuery = string.Empty;
 
     public MainWindow(StoreRegistry registry)
     {
@@ -248,10 +250,28 @@ public partial class MainWindow : Window
         {
             bool show = _activeFilter == "all"
                 || game.OwnerAccountId == _activeFilter;
+            show &= string.IsNullOrWhiteSpace(_searchQuery)
+                || game.Name.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase);
             if (show)
                 GameGrid.Children.Add(card);
         }
         UpdateGameCount();
+    }
+
+    private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        SearchPlaceholder.Visibility = string.IsNullOrEmpty(SearchTextBox.Text)
+            ? Visibility.Visible : Visibility.Collapsed;
+        _searchQuery = SearchTextBox.Text.Trim();
+        ApplyFilter();
+    }
+
+    private void SearchTextBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        _searchQuery = SearchTextBox.Text.Trim();
+        ApplyFilter();
+        e.Handled = true;
     }
 
     private void RefreshFilterButtonStyles()
