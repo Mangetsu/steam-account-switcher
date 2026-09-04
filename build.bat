@@ -5,6 +5,15 @@ cd /d "%ROOT%"
 echo === EnigmaLauncher Build ===
 echo.
 
+for /f "usebackq delims=" %%V in (`powershell -NoProfile -NonInteractive -Command "$xml = [xml](Get-Content -Raw 'EnigmaLauncher\EnigmaLauncher.csproj'); $xml.Project.PropertyGroup.Version"`) do set "APP_VERSION=%%V"
+if not defined APP_VERSION (
+    echo Could not read the app version from EnigmaLauncher\EnigmaLauncher.csproj.
+    pause
+    exit /b 1
+)
+echo Version: %APP_VERSION%
+echo.
+
 set DEST=%LOCALAPPDATA%\EnigmaLauncher
 set STAGE=%ROOT%.build\EnigmaLauncher
 
@@ -12,7 +21,7 @@ echo Stopping running EnigmaLauncher processes...
 powershell -NoProfile -NonInteractive -Command ^
   "Get-Process EnigmaLauncher -ErrorAction SilentlyContinue | Stop-Process -Force"
 
-echo Stopping running SteamSwitcher (v1.0.0) processes...
+echo Stopping legacy SteamSwitcher processes...
 powershell -NoProfile -NonInteractive -Command ^
   "Get-Process SteamSwitcher -ErrorAction SilentlyContinue | Stop-Process -Force"
 

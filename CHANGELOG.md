@@ -11,6 +11,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - Refined the main header layout, added game search, and added per-game monitor numbers to the
   display settings icon.
+- Build scripts now derive and display the app version from the project file instead of using a
+  separate hardcoded version string.
 
 ## [2.0.0] — 2026-07-06
 
